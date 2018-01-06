@@ -8,7 +8,7 @@ Author & Commercial Service Contact: [Sammy Fung](https://sammy.hk) <sammy@sammy
 # Features
 
 * supports Brother QL-720-NW label printer for label print (badge print).
-* supports multiple events
+* supports multiple events, multiple printers, multiple users.
 * check-in thru web UI
 * check-in thru API, tested to use QR code scanner to call URL, simple & fast 
 'scan & print' at conference check-in.
