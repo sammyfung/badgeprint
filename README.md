@@ -7,13 +7,13 @@ Author & Commercial Service Contact: [Sammy Fung](https://sammy.hk) <sammy@sammy
 
 # Features
 
-* supports Brother QL-720-NW label printer for label print (badge print).
+* supports Brother QL-720-NW label printer for label print (badge print), and 2 Brother label tapes - DK-11202 and DK-11209.
+* prints participant name, company name. For DK-11202, it also prints event/organiser logo and other information,  etc.
 * supports multiple events, multiple printers, multiple users.
-* check-in thru web UI
-* check-in thru API, tested to use QR code scanner to call URL, simple & fast 
-'scan & print' at conference check-in.
+* check-in thru web UI, supports search by name, phone number, email, etc.
+* check-in thru API, tested to use QR code scanner (iOS/Android) to call URL, simple & fast 'scan & print' at conference check-in.
 * support management thru Django web admin UI.
-* Example script to import participant details from CSV file (eg. CSV file 
+* an example script to import participant details from CSV file (eg. CSV file 
 export from eventbrite.com) to badge print in Django.
 * and some minor features.
 
