@@ -7,6 +7,7 @@ Author & Commercial Service Contact: [Sammy Fung](https://sammy.hk) <sammy@sammy
 
 # Features
 
+* supports Brother QL-720-NW label printer for label print (badge print).
 * supports multiple events
 * check-in thru web UI
 * check-in thru API, tested to use QR code scanner to call URL, simple & fast 
@@ -20,12 +21,16 @@ export from eventbrite.com) to badge print in Django.
 
 At <django_project_name>/urls.py, add the following required django classes.
 
+```
 from django.conf.urls import url, include
 from django.views.generic.base import RedirectView
+```
 
 and then add the following lines to urlpatterns array:
+```
     url(r'^badgeprint/', include('badgeprint.urls')),
     url(r'^$', RedirectView.as_view(url='/badgeprint', permanent=False), name='index')
+```
 
 # Use Cases
 
