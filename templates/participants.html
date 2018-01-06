@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load staticfiles %}
+{% block title %}
+Participant List
+{% endblock %}
+{% block css %}
+<link rel="stylesheet" type="text/css" href="{% static 'datatables.min.css' %}"/>
+<link rel="stylesheet" type="text/css" href="{% static 'Select-1.2.2/css/select.dataTables.min.css' %}"/>
+{% endblock %}
+{% block js %}
+<script type="text/javascript" src="{% static 'datatables.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'Select-1.2.2/js/dataTables.select.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'fnFilterClear.js' %}"></script>
+<script>
+$(document).ready( function () {
+    var table = $('#participant_list').DataTable( {
+        "ajax": {
+            "url": '{% url 'json_event_participant' event_id=id %}',
+            "dataType": 'json',
+            "dataSrc": "data",
+        },
+        "columns": [
+            { 'data': 'code' },
+            { 'data': 'first_name' },
+            { 'data': 'last_name' },
+            { 'data': 'company' },
+            { 'data': 'phone' },
+            { 'data': 'email' },
+            { 'data': 'ticket_type' },
+            { 'data': 'status' },
+        ],
+        "columnDefs": [
+            {
+                "render": function ( data, type, row ) {
+                    if (data=='Attending') {
+                      //return '<a href="{% url 'list_all_event' %}participant/' + row['id']+ '/print" class="checkin">Check-in</a>';
+                      return '<a href="javascript:checkin(' + row['id']+ ')" class="checkin">Check-in</a>';
+                    } else if (data == 'Attended') {
+                      return 'Attended (<a href="javascript:checkin(' + row['id']+ ')" class="checkin">Re-Print</a>)';
+                    };
+                },
+                "targets": 7
+            },
+            {
+                "targets": [ 4, 5, 6 ],
+                "visible": false
+            },
+        ],
+        //dom: "Bfrtip",
+        "select": false,
+        "order": [[ 1, "asc" ]],
+        "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]]
+    });
+    setInterval( function () {
+        table.ajax.reload(null, false);
+    }, 3000 );
+});
+function checkin(participantid) {
+    $.ajax({
+      url: "{% url 'list_all_event' %}participant/" + participantid + "/print"
+    })
+}
+function filterclear() {
+    table.fnFilterClear();
+}
+setInterval(function(){
+$.getJSON( "{% url 'json_event_stats' event_id=id %}", function( data ) {
+  $('#checkin_count').html(data.attended + " / " + data.total);
+});
+}, 5000);
+</script>
+{% endblock %}
+{% block sidebar %}
+<ul class="nav nav-sidebar">
+  <li class="active"><a href="{% url 'list_all_event' %}">Events</a></li>
+</ul>
+{% endblock %}
+{% block content %}
+  <div>Check-ins: </div>
+  <div id="checkin_count"></div>
+  <div class="table-responsive">
+    <table class="table table-striped" id="participant_list">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>First Name</th>
+          <th>Last Name</th>
+          <th>Company</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Ticket Type</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+    </table>
+ </div>
+{% endblock %}

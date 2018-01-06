@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load staticfiles %}
+{% block title %}
+Event List
+{% endblock %}
+{% block css %}
+<link rel="stylesheet" type="text/css" href="{% static 'datatables.min.css' %}"/>
+<link rel="stylesheet" type="text/css" href="{% static 'Select-1.2.2/css/select.dataTables.min.css' %}"/>
+{% endblock %}
+{% block js %}
+<script type="text/javascript" src="{% static 'datatables.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'Select-1.2.2/js/dataTables.select.min.js' %}"></script>
+<script>
+$(document).ready( function () {
+    var table = $('#event_list').DataTable( {
+        "ajax": {
+            "url": '{% url 'json_all_event' %}',
+            "dataType": 'json',
+            "dataSrc": "data",
+        },
+        "columns": [
+            { 'data': 'code' },
+            { 'data': 'name' },
+        ],
+        "columnDefs": [
+            {
+                "render": function ( data, type, row ) {
+                    return '<a href="{% url 'list_all_event' %}event/' + row['id'] + '">' + data + '</a>';
+                },
+                "targets": 1
+            },
+        ],
+        //dom: "Bfrtip",
+        "select": false,
+        "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]]
+    });
+    setInterval( function () {
+        table.ajax.reload(null, false);
+    }, 5000 );
+});
+</script>
+{% endblock %}
+{% block sidebar %}
+<ul class="nav nav-sidebar">
+  <li class="active"><a href="{% url 'list_all_event' %}">Events</a></li>
+</ul>
+{% endblock %}
+{% block content %}
+  <div class="table-responsive">
+    <table class="table table-striped" id="event_list">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Event</th>
+        </tr>
+      </thead>
+    </table>
+ </div>
+{% endblock %}
