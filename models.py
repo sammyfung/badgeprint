@@ -54,7 +54,7 @@ class Participant(models.Model):
     ticket_type = models.CharField(verbose_name='Ticket Type', max_length=60, null=True, blank=True)
 
     def __str__(self):
-        return "%s %s"%(self.first_name, self.last_name)
+        return "%s %s"%(self.first_name, self.last_name)u
 
 
 class Log(models.Model):
@@ -67,7 +67,7 @@ class Log(models.Model):
     message = models.CharField(verbose_name='Company Name', max_length=80, null=True, blank=True)
 
     def __str__(self):
-        return self.time
+        return self.participant
 
 
 class Checkin(models.Model):
