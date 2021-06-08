@@ -5,7 +5,7 @@ conferences and events. It provides part of event management solution.
 
 Author & Commercial Service Contact: [Sammy Fung](https://sammy.hk) <sammy@sammy.hk>
 
-# Features
+## Features
 
 * supports Brother QL-720-NW label printer for label print (badge print), and 2 Brother label tapes - DK-11202 and DK-11209.
 * prints participant name, company name. For DK-11202, it also prints event/organiser logo and other information,  etc.
@@ -17,7 +17,7 @@ Author & Commercial Service Contact: [Sammy Fung](https://sammy.hk) <sammy@sammy
 export from eventbrite.com) to badge print in Django.
 * and some minor features.
 
-# Redirect root URL (/) to badgeprint at Django
+## Redirect root URL (/) to badgeprint at Django
 
 At <django_project_name>/urls.py, add the following required django classes.
 
@@ -32,22 +32,26 @@ and then add the following lines to urlpatterns array:
     url(r'^$', RedirectView.as_view(url='/badgeprint', permanent=False), name='index')
 ```
 
-# Use Cases
+## Use Cases
 
 * [Hong Kong Open Source Conference](http://hkoscon.org)
 * [PyCon HK](http://pycon.hk)
 * Few formal tech events organised by HKCOTA and OSHK.
 
-# Commercial Service
+## Commercial Service
 
 For commercial service (eg. on-site solution, event management, etc), you are welcome
 to contact with author [Sammy Fung](https://sammy.hk) <sammy@sammy.hk> to support open
 source works. Non-profit making organisations and open source community organisers may
 receive discount off on service costs.
 
+## Sponsors
+
+Henry Law, Calvin Tsang.
+
+Thanks for my sponsors, please consider to [sponsor](https://github.com/sponsors/sammyfung) my works.
+
 # Special Thanks
 
-* Henry Law
 * [Hong Kong Creative Open Technology Association (HKCOTA)](http://cota.hk)
 * [Open Source Hong Kong (OSHK)](https://opensource.hk)
-

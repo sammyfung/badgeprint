@@ -52,6 +52,7 @@ class Participant(models.Model):
     email = models.EmailField(verbose_name='Email', null=True, blank=True)
     status = models.CharField(verbose_name='Status', max_length=10, default="Attending")
     ticket_type = models.CharField(verbose_name='Ticket Type', max_length=60, null=True, blank=True)
+    other = models.TextField(verbose_name="Others", null=True, blank=True)
 
     def __str__(self):
         return "%s %s"%(self.first_name, self.last_name)u
