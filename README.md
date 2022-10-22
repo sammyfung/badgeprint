@@ -1,9 +1,6 @@
-# badgeprint - Badge Print in Django
+# badgeprint - Badge label print on Brother QL printers
 
-badgeprint is a django app which manages check-in and label print for badges at
-conferences and events. It provides part of event management solution.
-
-Author & Commercial Service Contact: [Sammy Fung](https://sammy.hk) <sammy@sammy.hk>
+badgeprint is a django app to check in and print badge labels at Brother QL printers in conferences and events. It is also a simple event management solution.
 
 ## Features
 
@@ -16,6 +13,14 @@ Author & Commercial Service Contact: [Sammy Fung](https://sammy.hk) <sammy@sammy
 * an example script to import participant details from CSV file (eg. CSV file 
 export from eventbrite.com) to badge print in Django.
 * and some minor features.
+
+## System Requirement
+
+* Linux / OSX
+* Python 3 and Django 1.x
+* fontconfig
+  * OSX: brew install fontconfig
+* a supported Brother QL printer connected through network (Wifi/Ethernet)
 
 ## Redirect root URL (/) to badgeprint at Django
 
