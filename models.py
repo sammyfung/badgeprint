@@ -55,7 +55,7 @@ class Participant(models.Model):
     other = models.TextField(verbose_name="Others", null=True, blank=True)
 
     def __str__(self):
-        return "%s %s"%(self.first_name, self.last_name)u
+        return "%s %s"%(self.first_name, self.last_name)
 
 
 class Log(models.Model):

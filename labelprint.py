@@ -168,6 +168,11 @@ def create_label_im_62x100(**kwargs):
         else:
             horizontal_offset = kwargs['margin_left']
     offset = horizontal_offset, vertical_offset
+    if kwargs['logo'] != None and kwargs['logo'] != '':
+        logo = Image.open(kwargs['logo'], 'r')
+        logo_width, logo_height = logo.size
+        logo_offset = int((width - logo_width)/2), 20
+        im.paste(logo, logo_offset)
     draw.multiline_text(offset, kwargs['name'], (0), font=im_font, align=kwargs['align'])
     company_vertical_offset = vertical_offset + textsize[1] + 20
     company_horizontal_offset = max((width - company_textsize[0]) // 2, 0)
@@ -201,11 +206,6 @@ def create_label_im_62x100(**kwargs):
         eventname_horizontal_offset = max((width - eventname_textsize[0]) // 2, 0)
         eventname_offset = eventname_horizontal_offset, eventname_vertical_offset
         draw.multiline_text(eventname_offset, eventname, (0), font=eventname_font, align=kwargs['align'])
-    if kwargs['logo'] != None and kwargs['logo'] != '':
-        logo = Image.open(kwargs['logo'], 'r')
-        logo_width, logo_height = logo.size
-        logo_offset = int((width - logo_width)/2), 20
-        im.paste(logo, logo_offset)
     return im
 
 
@@ -287,7 +287,10 @@ def get_fonts(folder=None):
         parts = line.split(':')
         path = parts[0]
         families = parts[1].strip().split(',')
-        styles = parts[2].split('=')[1].split(',')
+        try:
+            styles = parts[2].split('=')[1].split(',')
+        except Exception:
+            styles = ''
         if len(families) == 1 and len(styles) > 1:
             families = [families[0]] * len(styles)
         elif len(families) > 1 and len(styles) == 1:
