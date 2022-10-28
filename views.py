@@ -137,7 +137,7 @@ def print_participant_label(request, participant_id):
 
 def print_participant_label_api(request, participant_id):
     # Retrieve participant information
-    if len(participant_id) == 22:
+    if len(participant_id) == 23:
         participant = Participant.objects.get(code=participant_id)
     else:
         participant = Participant.objects.get(id=participant_id)
