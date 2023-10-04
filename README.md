@@ -1,6 +1,6 @@
 # badgeprint - Badge label print on Brother QL printers
 
-badgeprint is a django app to check in and print badge labels at Brother QL printers in conferences and events. It is also a simple event management solution.
+badgeprint is a django app project to check in and print badge labels to Brother QL printers for conferences and events. It is also a simple event management solution.
 
 ## Features
 
@@ -17,24 +17,24 @@ export from eventbrite.com) to badge print in Django.
 ## System Requirement
 
 * Linux / OSX
-* Python 3 and Django 1.x
+* Python 3 and Django 4.2
 * fontconfig
   * OSX: brew install fontconfig
 * a supported Brother QL printer connected through network (Wifi/Ethernet)
 
 ## Redirect root URL (/) to badgeprint at Django
 
-At <django_project_name>/urls.py, add the following required django classes.
+In urls.py of your django project, import the path() function and include a path() line to urlpatterns array:
 
 ```
-from django.conf.urls import url, include
-from django.views.generic.base import RedirectView
+from django.urls import path, include
 ```
 
-and then add the following lines to urlpatterns array:
 ```
-    url(r'^badgeprint/', include('badgeprint.urls')),
-    url(r'^$', RedirectView.as_view(url='/badgeprint', permanent=False), name='index')
+urlpatterns = [
+    path('badgeprint/', include('badgeprint.badgeprint.urls')),
+    path('admin/', admin.site.urls),
+]
 ```
 
 ## Use Cases
@@ -43,20 +43,3 @@ and then add the following lines to urlpatterns array:
 * [PyCon HK](http://pycon.hk)
 * Few formal tech events organised by HKCOTA and OSHK.
 
-## Commercial Service
-
-For commercial service (eg. on-site solution, event management, etc), you are welcome
-to contact with author [Sammy Fung](https://sammy.hk) <sammy@sammy.hk> to support open
-source works. Non-profit making organisations and open source community organisers may
-receive discount off on service costs.
-
-## Sponsors
-
-Henry Law, Calvin Tsang.
-
-Thanks for my sponsors, please consider to [sponsor](https://github.com/sponsors/sammyfung) my works.
-
-# Special Thanks
-
-* [Hong Kong Creative Open Technology Association (HKCOTA)](http://cota.hk)
-* [Open Source Hong Kong (OSHK)](https://opensource.hk)
