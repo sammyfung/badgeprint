@@ -11,7 +11,7 @@ class Event(models.Model):
     code = models.CharField(verbose_name='Code', max_length=60, null=True, blank=True)
     name = models.CharField(verbose_name='Name', max_length=120)
     logo = models.ImageField(upload_to=user_directory_path, verbose_name="Logo", null=True, blank=True)
-    owner = models.ForeignKey(User, verbose_name='Event Owner')
+    owner = models.ForeignKey(User, verbose_name='Event Owner', null=True, blank=True, on_delete=models.SET_NULL)
     label_tpl = models.CharField(verbose_name='Label Template', max_length=60, null=True, blank=True)
     active = models.BooleanField(default=True)
 
@@ -34,8 +34,8 @@ class Printer(models.Model):
 
 
 class PrinterUser(models.Model):
-    user = models.ForeignKey(User, verbose_name='User')
-    printer = models.ForeignKey(Printer, verbose_name='Printer')
+    user = models.ForeignKey(User, verbose_name='User', on_delete=models.CASCADE)
+    printer = models.ForeignKey(Printer, verbose_name='Printer', on_delete=models.CASCADE)
     ticket_type = models.CharField(verbose_name='Label', max_length=60, null=True, blank=True)
 
     def __str__(self):
@@ -43,7 +43,7 @@ class PrinterUser(models.Model):
 
 
 class Participant(models.Model):
-    event = models.ForeignKey(Event, verbose_name='Event')
+    event = models.ForeignKey(Event, verbose_name='Event', on_delete=models.CASCADE)
     code = models.CharField(verbose_name='Code', max_length=60, null=True, blank=True)
     first_name = models.CharField(verbose_name='First Name', max_length=60)
     last_name = models.CharField(verbose_name='Last Name', max_length=60, null=True, blank=True)
@@ -59,9 +59,9 @@ class Participant(models.Model):
 
 
 class Log(models.Model):
-    event = models.ForeignKey(Event, verbose_name='Event', null=True, blank=True)
-    user = models.ForeignKey(User, verbose_name='User', null=True, blank=True)
-    participant = models.ForeignKey(Participant, verbose_name='Participant', null=True, blank=True)
+    event = models.ForeignKey(Event, verbose_name='Event', null=True, blank=True, on_delete=models.SET_NULL)
+    user = models.ForeignKey(User, verbose_name='User', null=True, blank=True, on_delete=models.SET_NULL)
+    participant = models.ForeignKey(Participant, verbose_name='Participant', null=True, blank=True, on_delete=models.SET_NULL)
     time = models.DateTimeField(verbose_name='Log Time', auto_now_add=True)
     type = models.CharField(verbose_name='Type', max_length=20, default='system')
     action = models.CharField(verbose_name='Action Name', max_length=20)

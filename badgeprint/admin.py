@@ -1,5 +1,5 @@
 from django.contrib import admin
-from badgeprint.models import Event, Printer, PrinterUser, Participant, Log, Checkin
+from .models import Event, Printer, PrinterUser, Participant, Log, Checkin
 
 
 class EventAdmin(admin.ModelAdmin):

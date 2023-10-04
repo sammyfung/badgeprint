@@ -4,14 +4,14 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.urls import reverse
-from badgeprint.models import Event, Printer, PrinterUser, Participant, Log
-from badgeprint.labelprint import print_text
+from .models import Event, Printer, PrinterUser, Participant, Log
+from .lib.labelprint import print_text
 import re
 
 
 def list_all_event(request):
     # List all events
-    if request.user.is_authenticated():
+    if request.user.is_authenticated:
         return render(request, 'events.html')
     else:
         return HttpResponseRedirect(reverse('badgeprint_logon'))
@@ -19,7 +19,7 @@ def list_all_event(request):
 
 def json_all_event(request):
     # return all events in json
-    if request.user.is_authenticated():
+    if request.user.is_authenticated:
         item_list = Event.objects.filter(id__gte=0, active=True).order_by('-id')
         total = item_list.count()
         json_items = {'total': total, 'data': []}
@@ -40,7 +40,7 @@ def json_all_event(request):
 
 def list_event_participant(request, event_id):
     # List all participants from requested event.
-    if request.user.is_authenticated():
+    if request.user.is_authenticated:
         return render(request, 'participants.html', {'id': event_id})
     else:
         raise Http404("Authentication is required.")
@@ -48,7 +48,7 @@ def list_event_participant(request, event_id):
 
 def json_event_participant(request, event_id):
     # return all events in json
-    if request.user.is_authenticated():
+    if request.user.is_authenticated:
         item_list = Participant.objects.filter(event=event_id).order_by('first_name')
         total = item_list.count()
         attended = item_list.filter(status='Attended').count()
@@ -73,7 +73,7 @@ def json_event_participant(request, event_id):
 
 def json_event_stats(request, event_id):
     # return all events in json
-    if request.user.is_authenticated():
+    if request.user.is_authenticated:
         item_list = Participant.objects.filter(event=event_id).order_by('first_name')
         total = item_list.count()
         attended = item_list.filter(status='Attended').count()
@@ -84,7 +84,7 @@ def json_event_stats(request, event_id):
 
 
 def event_checkinreset(request, event_id):
-    if request.user.is_authenticated():
+    if request.user.is_authenticated:
         participant_list = Participant.objects.filter(event=event_id)
         for participant in participant_list:
             participant.status = "Attending"
@@ -95,7 +95,7 @@ def event_checkinreset(request, event_id):
 
 
 def print_participant_label(request, participant_id):
-    if request.user.is_authenticated():
+    if request.user.is_authenticated:
         # Retrieve participant information
         participant = Participant.objects.get(id=participant_id)
         # Additional: marking participant
