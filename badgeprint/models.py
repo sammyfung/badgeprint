@@ -7,7 +7,7 @@ def user_directory_path(instance, filename):
 
 
 class Event(models.Model):
-    platform = models.CharField(verbose_name='Platform', max_length=30, default='local')
+    platform = models.CharField(verbose_name='Platform', max_length=30, default='badgeprint')
     code = models.CharField(verbose_name='Code', max_length=60, null=True, blank=True)
     name = models.CharField(verbose_name='Name', max_length=120)
     logo = models.ImageField(upload_to=user_directory_path, verbose_name="Logo", null=True, blank=True)

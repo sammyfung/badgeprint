@@ -8,11 +8,10 @@ from .models import Event, Printer, PrinterUser, Participant, Log
 from .lib.labelprint import print_text
 import re
 
-
 def list_all_event(request):
     # List all events
     if request.user.is_authenticated:
-        return render(request, 'events.html')
+        return render(request, 'badgeprint/events.html')
     else:
         return HttpResponseRedirect(reverse('badgeprint_logon'))
 
@@ -41,7 +40,7 @@ def json_all_event(request):
 def list_event_participant(request, event_id):
     # List all participants from requested event.
     if request.user.is_authenticated:
-        return render(request, 'participants.html', {'id': event_id})
+        return render(request, 'badgeprint/participants.html', {'id': event_id})
     else:
         raise Http404("Authentication is required.")
 
@@ -115,6 +114,8 @@ def print_participant_label(request, participant_id):
         except IndexError:
             printer = PrinterUser.objects.filter(user=request.user)[0].printer
         data = {
+            'participant': participant,
+            'printer': printer,
             'event_name': participant.event.name,
             'first_name': participant.first_name,
             'last_name': participant.last_name,
@@ -177,7 +178,7 @@ def print_participant_label_api(request, participant_id):
 
 
 def badgeprint_logon(request):
-    if request.user.is_authenticated():
+    if request.user.is_authenticated:
         return HttpResponseRedirect(reverse('list_all_event'))
     else:
         email = request.POST.get('inputEmail', '')
@@ -186,13 +187,13 @@ def badgeprint_logon(request):
             try:
                 username = User.objects.get(email=email).username
             except ObjectDoesNotExist:
-                return render(request, 'logon.html')
+                return render(request, 'badgeprint/logon.html')
             user = authenticate(username=username, password=password)
             if user is not None:
                 login(request, user)
             return HttpResponseRedirect(reverse('list_all_event'))
         else:
-            return render(request, 'logon.html')
+            return render(request, 'badgeprint/logon.html')
 
 
 def badgeprint_logoff(request):
