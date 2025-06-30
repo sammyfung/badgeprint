@@ -5,7 +5,8 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.urls import reverse
 from .models import Event, Printer, PrinterUser, Participant, Log
-from .lib.labelprint import print_text
+from .lib.labelprint import print_text, print_raster_file
+from django.conf import settings
 import re
 
 def list_all_event(request):
@@ -200,3 +201,10 @@ def badgeprint_logoff(request):
     if request.user.is_authenticated():
         logout(request)
     return HttpResponseRedirect(reverse('badgeprint_logon'))
+
+
+def print_raster(request, code):
+    printer_uri = PrinterUser.objects.filter(user=request.user)[0].printer.uri
+    raster_file_path = f"{settings.MEDIA_ROOT}/badgeprint/labels/{code}.raster"
+    print_raster_file(printer_uri, raster_file_path)
+    return JsonResponse({'status': 'ok'})

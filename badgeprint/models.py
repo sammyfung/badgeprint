@@ -55,7 +55,7 @@ class Participant(models.Model):
     other = models.TextField(verbose_name="Others", null=True, blank=True)
 
     def __str__(self):
-        return "%s %s"%(self.first_name, self.last_name)
+        return f"{self.first_name} {self.last_name}"
 
 
 class Log(models.Model):
@@ -68,7 +68,7 @@ class Log(models.Model):
     message = models.CharField(verbose_name='Company Name', max_length=80, null=True, blank=True)
 
     def __str__(self):
-        return self.participant
+        return f"{self.participant}"
 
 
 class Checkin(models.Model):

@@ -21,14 +21,12 @@ def get_label_context(first_name, last_name, company, default_label_size):
     context = {
       'first_name':    first_name,
       'last_name':     last_name,
-      'name':          "%s %s"%(first_name, last_name),
+      'name':          f'{first_name} {last_name}',
       'company':       company,
       'font_size':     int(90),
       'company_font_size': int(40),
-      'font_family':   'Open Sans',
+      'font_family':   'Noto Sans',
       'font_style':    'Regular',
-      # 'font_family':   ('Noto Sans CJK TC', 'Noto Sans CJK TC Medium'),
-      # 'font_style':    ('Medium', 'Regular'),
       'label_size':    default_label_size,
       'margin':        int(10),
       'threshold':     int(70),
@@ -54,19 +52,21 @@ def get_label_context(first_name, last_name, company, default_label_size):
                 font_style =  'Regular'
             font_path = FONTS[font_family][font_style]
         except KeyError:
-            raise LookupError("Couln't find the font & style")
+            raise LookupError("Could't find the font & style")
         return font_path
 
     context['font_path'] = get_font_path(context['font_family'], context['font_style'])
     # Use Chinese font if first name is not starting with A-Z
-    if not(re.search('^[A-Za-z0-9,.()\-/ ]*$', last_name)):
+    if not re.search('^[A-Za-z0-9,.()\-/ ]*$', last_name):
         context['name'] = "%s%s" % (first_name, last_name)
-        context['font_path'] = '/badgeprint/static/fonts/NotoSansCJKtc-Medium.otf'
-    if not(re.search('^[A-Za-z0-9,.()\-/ ]*$', first_name)):
+        context['font_path'] = get_font_path('Noto Sans TC', 'ExtraBold')
+
+    if not re.search('^[A-Za-z0-9,.()\-/ ]*$', first_name):
         context['name'] = "%s%s" % (last_name, first_name)
-        context['font_path'] = '/badgeprint/static/fonts/NotoSansCJKtc-Medium.otf'
-    if not (re.search('^[A-Za-z0-9,.()\-/ ]*$', company)):
-        context['font_path'] = '/badgeprint/static/fonts/NotoSansCJKtc-Medium.otf'
+        context['font_path'] = get_font_path('Noto Sans TC', 'ExtraBold')
+
+    if not re.search('^[A-Za-z0-9,.()\-/ ]*$', company):
+        context['font_path'] = get_font_path('Noto Sans TC', 'ExtraBold')
 
     def get_label_dimensions(label_size):
         try:
@@ -86,46 +86,52 @@ def get_label_context(first_name, last_name, company, default_label_size):
 # Brother Label DK-11209: 62x29 (696x271px)
 def create_label_im_62x29(**kwargs):
     label_type = label_type_specs[kwargs['label_size']]['kind']
-    kwargs['font_path'] = kwargs['font_path'][1:]
     im_font = ImageFont.truetype(kwargs['font_path'], kwargs['font_size'])
     company_font = ImageFont.truetype(kwargs['font_path'], kwargs['company_font_size'])
     im = Image.new('L', (20, 20), 'white')
     draw = ImageDraw.Draw(im)
-    company_textsize = draw.multiline_textsize(kwargs['company'], font=company_font)
-    textsize = draw.multiline_textsize(kwargs['name'], font=im_font)
+    company_textsize = draw.textbbox((0, 0), kwargs['company'], font=company_font)
+    textsize = draw.textbbox((0, 0), kwargs['name'], font=im_font)
     # Label DK-11209 is 696x271px
-    if textsize[0] > 696:
+    if textsize[2] > 696:
         kwargs['name'] = "%s\n%s"%(kwargs['first_name'], kwargs['last_name'])
-        textsize = draw.multiline_textsize(kwargs['name'], font=im_font)
+        textsize = draw.textbbox((0, 0), kwargs['name'], font=im_font)
     width, height = kwargs['width'], kwargs['height']
     if kwargs['orientation'] == 'standard':
         if label_type in (ENDLESS_LABEL,):
-            height = textsize[1] + company_textsize[1] + kwargs['margin_top'] + kwargs['margin_bottom']
+            height = textsize[3] + company_textsize[3] + kwargs['margin_top'] + kwargs['margin_bottom']
     elif kwargs['orientation'] == 'rotated':
         if label_type in (ENDLESS_LABEL,):
-            width = textsize[0] + company_textsize[0] + kwargs['margin_left'] + kwargs['margin_right']
+            width = textsize[2] + company_textsize[2] + kwargs['margin_left'] + kwargs['margin_right']
     im = Image.new('L', (width, height), 'white')
     draw = ImageDraw.Draw(im)
     if kwargs['orientation'] == 'standard':
         if label_type in (DIE_CUT_LABEL, ROUND_DIE_CUT_LABEL):
-            vertical_offset  = (height - textsize[1] - company_textsize[1] - 10)//2
+            vertical_offset  = (height - textsize[3] - company_textsize[3] - 10)//2
             vertical_offset += (kwargs['margin_top'] - kwargs['margin_bottom'])//2
         else:
             vertical_offset = kwargs['margin_top']
-        horizontal_offset = max((width - textsize[0])//2, 0)
+        horizontal_offset = max((width - textsize[2])//2, 0)
     elif kwargs['orientation'] == 'rotated':
-        vertical_offset  = (height - textsize[1])//2
+        vertical_offset  = (height - textsize[3])//2
         vertical_offset += (kwargs['margin_top'] - kwargs['margin_bottom'])//2
         if label_type in (DIE_CUT_LABEL, ROUND_DIE_CUT_LABEL):
-            horizontal_offset = max((width - textsize[0])//2, 0)
+            horizontal_offset = max((width - textsize[2])//2, 0)
         else:
             horizontal_offset = kwargs['margin_left']
     offset = horizontal_offset, vertical_offset
     draw.multiline_text(offset, kwargs['name'], (0), font=im_font, align=kwargs['align'])
-    company_vertical_offset = vertical_offset + textsize[1] + 20
-    company_horizontal_offset = max((width - company_textsize[0]) // 2, 0)
+    company_vertical_offset = vertical_offset + textsize[3] + 20
+    company_horizontal_offset = max((width - company_textsize[2]) // 2, 0)
     company_offset = company_horizontal_offset, company_vertical_offset
     draw.multiline_text(company_offset, kwargs['company'], (0), font=company_font, align=kwargs['align'])
+    # Save the badge image to MEDIA_ROOT
+    try:
+        im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{kwargs['name']}.png")
+    except FileNotFoundError:
+        os.mkdir(settings.MEDIA_ROOT + '/badgeprint')
+        os.mkdir(settings.MEDIA_ROOT + '/badgeprint/labels')
+        im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{kwargs['name']}.png")
     return im
 
 
@@ -138,33 +144,33 @@ def create_label_im_62x100(**kwargs):
     company_font = ImageFont.truetype(kwargs['font_path'], kwargs['company_font_size'])
     im = Image.new('L', (20, 20), 'white')
     draw = ImageDraw.Draw(im)
-    company_textsize = draw.multiline_textsize(kwargs['company'], font=company_font)
-    textsize = draw.multiline_textsize(kwargs['name'], font=im_font)
+    company_textsize = draw.textbbox((0, 0), kwargs['company'], font=company_font)
+    textsize = draw.textbbox((0, 0), kwargs['name'], font=im_font)
     # Label DK-11209 is 696x1109px
-    if textsize[0] > 696:
+    if textsize[2] > 696:
         kwargs['name'] = "%s\n%s"%(kwargs['first_name'], kwargs['last_name'])
-        textsize = draw.multiline_textsize(kwargs['name'], font=im_font)
+        textsize = draw.textbbox((0, 0), kwargs['name'], font=im_font)
     width, height = kwargs['width'], kwargs['height']
     if kwargs['orientation'] == 'standard':
         if label_type in (ENDLESS_LABEL,):
-            height = textsize[1] + company_textsize[1] + kwargs['margin_top'] + kwargs['margin_bottom']
+            height = textsize[3] + company_textsize[3] + kwargs['margin_top'] + kwargs['margin_bottom']
     elif kwargs['orientation'] == 'rotated':
         if label_type in (ENDLESS_LABEL,):
-            width = textsize[0] + company_textsize[0] + kwargs['margin_left'] + kwargs['margin_right']
+            width = textsize[2] + company_textsize[2] + kwargs['margin_left'] + kwargs['margin_right']
     im = Image.new('L', (width, height), 'white')
     draw = ImageDraw.Draw(im)
     if kwargs['orientation'] == 'standard':
         if label_type in (DIE_CUT_LABEL, ROUND_DIE_CUT_LABEL):
-            vertical_offset  = (height - textsize[1] - company_textsize[1] - 10)//2
+            vertical_offset  = (height - textsize[3] - company_textsize[3] - 10)//2
             vertical_offset += (kwargs['margin_top'] - kwargs['margin_bottom'])//2
         else:
             vertical_offset = kwargs['margin_top']
-        horizontal_offset = max((width - textsize[0])//2, 0)
+        horizontal_offset = max((width - textsize[2])//2, 0)
     elif kwargs['orientation'] == 'rotated':
-        vertical_offset  = (height - textsize[1])//2
+        vertical_offset  = (height - textsize[3])//2
         vertical_offset += (kwargs['margin_top'] - kwargs['margin_bottom'])//2
         if label_type in (DIE_CUT_LABEL, ROUND_DIE_CUT_LABEL):
-            horizontal_offset = max((width - textsize[0])//2, 0)
+            horizontal_offset = max((width - textsize[2])//2, 0)
         else:
             horizontal_offset = kwargs['margin_left']
     offset = horizontal_offset, vertical_offset
@@ -174,8 +180,8 @@ def create_label_im_62x100(**kwargs):
         logo_offset = int((width - logo_width)/2), 20
         im.paste(logo, logo_offset)
     draw.multiline_text(offset, kwargs['name'], (0), font=im_font, align=kwargs['align'])
-    company_vertical_offset = vertical_offset + textsize[1] + 20
-    company_horizontal_offset = max((width - company_textsize[0]) // 2, 0)
+    company_vertical_offset = vertical_offset + textsize[3] + 20
+    company_horizontal_offset = max((width - company_textsize[2]) // 2, 0)
     company_offset = company_horizontal_offset, company_vertical_offset
     draw.multiline_text(company_offset, kwargs['company'], (0), font=company_font, align=kwargs['align'])
     draw.line((3, 10, width-3, 10), fill=0, width=3)
@@ -183,7 +189,6 @@ def create_label_im_62x100(**kwargs):
         if re.search('^type-non-', kwargs['label_tpl']):
             label_tpl = re.sub('^type-non-', '', kwargs['label_tpl'])
             ticket_type = kwargs['ticket_type']
-            print("%s %s"%(label_tpl , ticket_type))
             if label_tpl != ticket_type:
                 ticket_type = ticket_type.upper()
                 ticket_type_font = ImageFont.truetype(kwargs['font_path'], 60)
@@ -206,6 +211,15 @@ def create_label_im_62x100(**kwargs):
         eventname_horizontal_offset = max((width - eventname_textsize[0]) // 2, 0)
         eventname_offset = eventname_horizontal_offset, eventname_vertical_offset
         draw.multiline_text(eventname_offset, eventname, (0), font=eventname_font, align=kwargs['align'])
+
+    # Save the badge image to MEDIA_ROOT
+    # Save the badge image to MEDIA_ROOT
+    try:
+        im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{kwargs['name']}.png")
+    except FileNotFoundError:
+        os.mkdir(settings.MEDIA_ROOT + '/badgeprint')
+        os.mkdir(settings.MEDIA_ROOT + '/badgeprint/labels')
+        im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{kwargs['name']}.png")
     return im
 
 
@@ -228,6 +242,7 @@ def print_text(**data):
     try:
         context = get_label_context(data['first_name'], data['last_name'], data['company'], data['label_size'])
     except LookupError as e:
+        print(f'print_text() LookupError error: {e}')
         return status
 
     if context['name'] is None:
@@ -244,27 +259,69 @@ def print_text(**data):
     context['label_tpl'] = data['label_tpl']
     context['ticket_type'] = data['ticket_type']
     im = eval('create_label_im_' + data['label_size'])(**context)
+    # Deprecating after must create image for performance.
+    #im.save(f"{settings.MEDIA_ROOT}/{context['name']}.png")
     if data['debug']:
         data['image'] = im
+        # Save the badge image to MEDIA_ROOT
         try:
-            im.save(settings.MEDIA_ROOT + '/cache/label-%s_%s.png'%(data['first_name'], data['last_name']))
+            im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{kwargs['name']}.png")
         except FileNotFoundError:
-            os.mkdir(settings.MEDIA_ROOT + '/cache')
-            im.save(settings.MEDIA_ROOT + '/cache/label-%s_%s.png'%(data['first_name'], data['last_name']))
+            os.mkdir(settings.MEDIA_ROOT + '/badgeprint')
+            os.mkdir(settings.MEDIA_ROOT + '/badgeprint/labels')
+            im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{kwargs['name']}.png")
     else:
         qlr = BrotherQLRaster(MODEL)
         rotate = 0 if data['orientation'] == 'standard' else 90
         if context['label_size'] == '62x29':
             rotate = 0
         create_label(qlr, im, context['label_size'], threshold=context['threshold'], cut=True, rotate=rotate)
+        print(f'qlr.data ({type(qlr.data)}) len:{len(qlr.data)}')
+
+        raster_file = f"{settings.MEDIA_ROOT}/badgeprint/labels/{context['name']}.raster"
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(raster_file), exist_ok=True)
+
+        # Save the bytes to a file
+        with open(raster_file, 'wb') as file:
+            file.write(qlr.data)
 
         try:
             be = BACKEND_CLASS(BACKEND_STRING_DESCR)
-            be.write(qlr.data)
-            be.dispose()
+            #be.write(qlr.data)
+            #be.dispose()
             del be
         except Exception as e:
+            print(f'print_text() write to printer exception {e}')
             return status
+    status = True
+    return status
+
+
+def print_raster_file(printer_uri, raster_file_path):
+    global DEBUG, FONTS, DEFAULT_FONT, MODEL, BACKEND_CLASS, BACKEND_STRING_DESCR, DEFAULT_ORIENTATION, DEFAULT_LABEL_SIZE
+    BACKEND_STRING_DESCR = printer_uri # "tcp://192.168.0.10:9100"
+    selected_backend = guess_backend(BACKEND_STRING_DESCR)
+    BACKEND_CLASS = backend_factory(selected_backend)['backend_class']
+    MODEL = "QL-720NW"
+    DEFAULT_LABEL_SIZE  = "62x100"
+    DEFAULT_ORIENTATION = "rotated"
+
+    status = False
+    qlr = BrotherQLRaster(MODEL)
+
+    # Read the file as bytes
+    with open(raster_file_path, "rb") as file:
+        qlr.data = file.read()
+
+    try:
+        be = BACKEND_CLASS(BACKEND_STRING_DESCR)
+        be.write(qlr.data)
+        be.dispose()
+        del be
+    except Exception as e:
+        print(f'print_raster_file() write to printer exception {e}')
+        return status
     status = True
     return status
 
@@ -286,6 +343,10 @@ def get_fonts(folder=None):
         if 'otf' not in line and 'ttf' not in line: continue
         parts = line.split(':')
         path = parts[0]
+        if not re.search('^/', path):
+            path = re.sub(r'"', '', path)
+            path = re.sub(r'^\.', '', path)
+            path = os.getcwd() + path
         families = parts[1].strip().split(',')
         try:
             styles = parts[2].split('=')[1].split(',')

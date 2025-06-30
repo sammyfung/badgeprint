@@ -3,7 +3,7 @@ from .models import Event, Printer, PrinterUser, Participant, Log, Checkin
 
 
 class EventAdmin(admin.ModelAdmin):
-    list_display = ('platform', 'code', 'name', 'owner', 'active')
+    list_display = ('name', 'code', 'owner', 'platform', 'active')
     list_filter = ['active', 'platform', 'owner']
     search_fields = ['code', 'name', 'owner']
 
@@ -18,7 +18,7 @@ class PrinterUserAdmin(admin.ModelAdmin):
     search_fields = ['user__username', 'printer__location', 'ticket_type']
 
 class ParticipantAdmin(admin.ModelAdmin):
-    list_display = ('event', 'code', 'first_name', 'last_name', 'company', 'phone', 'email', 'ticket_type', 'status')
+    list_display = ('id', 'event', 'code', 'first_name', 'last_name', 'company', 'phone', 'email', 'ticket_type', 'status')
     list_filter = ['event', 'status']
     search_fields = ['first_name', 'last_name', 'company', 'phone', 'email']
 

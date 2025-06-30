@@ -10,6 +10,7 @@ urlpatterns = [
     path(r'api/event.json', views.json_all_event, name='json_all_event'),
     path(r'api/event/<int:event_id>.json', views.json_event_participant, name='json_event_participant'),
     path(r'api/event/stats/<int:event_id>.json', views.json_event_stats, name='json_event_stats'),
+    path(r'print_raster/<str:code>', views.print_raster, name='print_raster'),
     path(r'logon', views.badgeprint_logon, name='badgeprint_logon'),
     path(r'logoff', views.badgeprint_logoff, name='badgeprint_logoff'),
     path(r'', views.list_all_event, name='list_all_event'),
