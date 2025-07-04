@@ -86,6 +86,7 @@ def get_label_context(first_name, last_name, company, default_label_size):
 # Brother Label DK-11209: 62x29 (696x271px)
 def create_label_im_62x29(**kwargs):
     label_type = label_type_specs[kwargs['label_size']]['kind']
+    label_dimension = label_type_specs[kwargs['label_size']]['dots_printable']
     im_font = ImageFont.truetype(kwargs['font_path'], kwargs['font_size'])
     company_font = ImageFont.truetype(kwargs['font_path'], kwargs['company_font_size'])
     im = Image.new('L', (20, 20), 'white')
@@ -93,8 +94,8 @@ def create_label_im_62x29(**kwargs):
     company_textsize = draw.textbbox((0, 0), kwargs['company'], font=company_font)
     textsize = draw.textbbox((0, 0), kwargs['name'], font=im_font)
     # Label DK-11209 is 696x271px
-    if textsize[2] > 696:
-        kwargs['name'] = "%s\n%s"%(kwargs['first_name'], kwargs['last_name'])
+    if textsize[2] > label_dimension[0]:
+        kwargs['name'] = f"{kwargs['first_name']}\n{kwargs['last_name']}"
         textsize = draw.textbbox((0, 0), kwargs['name'], font=im_font)
     width, height = kwargs['width'], kwargs['height']
     if kwargs['orientation'] == 'standard':
@@ -138,6 +139,7 @@ def create_label_im_62x29(**kwargs):
 # Brother Label DK-11202: 62x100 (696x1109px)
 def create_label_im_62x100(**kwargs):
     label_type = label_type_specs[kwargs['label_size']]['kind']
+    label_dimension = label_type_specs[kwargs['label_size']]['dots_printable']
     kwargs['font_path'] = kwargs['font_path'][1:]
     kwargs['font_path'] = re.sub('"','', kwargs['font_path'])
     im_font = ImageFont.truetype(kwargs['font_path'], kwargs['font_size'], encoding="utf-8")
@@ -147,8 +149,8 @@ def create_label_im_62x100(**kwargs):
     company_textsize = draw.textbbox((0, 0), kwargs['company'], font=company_font)
     textsize = draw.textbbox((0, 0), kwargs['name'], font=im_font)
     # Label DK-11209 is 696x1109px
-    if textsize[2] > 696:
-        kwargs['name'] = "%s\n%s"%(kwargs['first_name'], kwargs['last_name'])
+    if textsize[2] > label_dimension[0]:
+        kwargs['name'] = f"{kwargs['first_name']}\n{kwargs['last_name']}"
         textsize = draw.textbbox((0, 0), kwargs['name'], font=im_font)
     width, height = kwargs['width'], kwargs['height']
     if kwargs['orientation'] == 'standard':
