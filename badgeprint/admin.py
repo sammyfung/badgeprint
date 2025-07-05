@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Event, Printer, PrinterUser, Participant, Log, Checkin
+from .models import Event, Printer, PrinterUser, Participant, Service
 
 
 class EventAdmin(admin.ModelAdmin):
@@ -23,20 +23,14 @@ class ParticipantAdmin(admin.ModelAdmin):
     search_fields = ['first_name', 'last_name', 'company', 'phone', 'email']
 
 
-class LogAdmin(admin.ModelAdmin):
-    list_display = ('event', 'user', 'participant', 'time', 'type', 'action', 'message')
-
-
-class CheckinAdmin(admin.ModelAdmin):
-    list_display = ('event', 'attendee', 'time')
-    search_fields = ['attendee']
+class ServiceAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title', 'description', 'user', 'create_time')
 
 
 admin.site.register(Event, EventAdmin)
 admin.site.register(Printer, PrinterAdmin)
 admin.site.register(PrinterUser, PrinterUserAdmin)
 admin.site.register(Participant, ParticipantAdmin)
-admin.site.register(Log, LogAdmin)
-admin.site.register(Checkin, CheckinAdmin)
+admin.site.register(Service, ServiceAdmin)
 
 

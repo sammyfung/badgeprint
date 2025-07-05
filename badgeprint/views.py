@@ -4,7 +4,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.urls import reverse
-from .models import Event, Printer, PrinterUser, Participant, Log
+from .models import Event, Printer, PrinterUser, Participant, Service
 from .lib.labelprint import print_text, print_raster_file
 from django.conf import settings
 import re
@@ -99,16 +99,25 @@ def print_participant_label(request, participant_id):
         # Retrieve participant information
         participant = Participant.objects.get(id=participant_id)
         # Additional: marking participant
+        description = f'For {participant} in {participant.event}.'
         if participant.status != 'Attended':
             participant.status = 'Attended'
             participant.save()
-            log = Log(event=participant.event, user=request.user, participant=participant, \
-                      type="action", action="checkin")
-            log.save()
-        # Log
-        log = Log(event=participant.event, user=request.user, participant=participant, \
-                  type="action", action="print")
-        log.save()
+            metadata = {
+                'event_id': participant.event.id,
+                'participant_id': participant.id,
+                'provider_id': request.user.id
+            }
+            service = Service(title='Event checkin', description=description, metadata=metadata)
+            service.save()
+        # Log badge print to Service
+        metadata = {
+            'event_id': participant.event.id,
+            'participant_id': participant.id,
+            'provider_id': request.user.id
+        }
+        service = Service(title='Badge print', description=description, metadata=metadata)
+        service.save()
         # Print to label printer
         try:
             printer = PrinterUser.objects.filter(user=request.user, ticket_type=participant.ticket_type)[0].printer
@@ -144,16 +153,25 @@ def print_participant_label_api(request, participant_id):
     else:
         participant = Participant.objects.get(id=participant_id)
     # Additional: marking participant
+    description = f'For {participant} in {participant.event}.'
     if participant.status != 'Attended':
         participant.status = 'Attended'
         participant.save()
-        log = Log(event=participant.event, user=User(id=1), participant=participant, \
-                  type="action", action="checkin")
-        log.save()
-    # Log
-    log = Log(event=participant.event, user=User(id=1), participant=participant, \
-              type="action", action="print")
-    log.save()
+        metadata = {
+            'event_id': participant.event.id,
+            'participant_id': participant.id,
+            'provider_id': request.user.id
+        }
+        service = Service(title='Event checkin', description=description, metadata=metadata)
+        service.save()
+    # Log badge print to Service
+    metadata = {
+        'event_id': participant.event.id,
+        'participant_id': participant.id,
+        'provider_id': request.user.id
+    }
+    service = Service(title='Badge print', description=description, metadata=metadata)
+    service.save()
     # Print to label printer
     try:
         printer = PrinterUser.objects.filter(user=User(id=1), ticket_type=participant.ticket_type)[0].printer

@@ -44,7 +44,7 @@ class PrinterUser(models.Model):
 
 class Participant(models.Model):
     event = models.ForeignKey(Event, verbose_name='Event', on_delete=models.CASCADE)
-    code = models.CharField(verbose_name='Code', max_length=60, null=True, blank=True)
+    code = models.CharField(verbose_name='Code', max_length=100, null=True, blank=True)
     first_name = models.CharField(verbose_name='First Name', max_length=60)
     last_name = models.CharField(verbose_name='Last Name', max_length=60, null=True, blank=True)
     company = models.CharField(verbose_name='Company Name', max_length=80, null=True, blank=True)
@@ -58,20 +58,10 @@ class Participant(models.Model):
         return f"{self.first_name} {self.last_name}"
 
 
-class Log(models.Model):
-    event = models.ForeignKey(Event, verbose_name='Event', null=True, blank=True, on_delete=models.SET_NULL)
+class Service(models.Model):
+    title = models.CharField(verbose_name='Title', max_length=100)
     user = models.ForeignKey(User, verbose_name='User', null=True, blank=True, on_delete=models.SET_NULL)
-    participant = models.ForeignKey(Participant, verbose_name='Participant', null=True, blank=True, on_delete=models.SET_NULL)
-    time = models.DateTimeField(verbose_name='Log Time', auto_now_add=True)
-    type = models.CharField(verbose_name='Type', max_length=20, default='system')
-    action = models.CharField(verbose_name='Action Name', max_length=20)
-    message = models.CharField(verbose_name='Company Name', max_length=80, null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.participant}"
-
-
-class Checkin(models.Model):
-    event = models.CharField(verbose_name='Event ID', max_length=20, null=True, blank=True)
-    attendee = models.CharField(verbose_name='Attendee ID', max_length=20, null=True, blank=True)
-    time = models.DateTimeField(verbose_name='Checkin Time')
+    description = models.TextField(verbose_name='Description', null=True, blank=True)
+    metadata = models.JSONField(verbose_name='Metadata', null=True, blank=True)
+    create_time = models.DateTimeField(verbose_name='Create Time', auto_now_add=True)
+    update_time = models.DateTimeField(verbose_name='Update Time', auto_now=True)
