@@ -126,7 +126,7 @@ def print_participant_label(request, participant_id):
             'printer_model': 'QL-720NW',
             'orientation': 'rotated',
             'logo': participant.event.logo,
-            'label_tpl': participant.event.label_tpl,
+            'label_tpl': participant.event.label_tpl if participant.event.label_tpl else '',
             'ticket_type': participant.ticket_type,
             'debug': printer.debug,
         }

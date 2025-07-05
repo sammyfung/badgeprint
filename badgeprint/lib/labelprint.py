@@ -140,8 +140,6 @@ def create_label_im_62x29(**kwargs):
 def create_label_im_62x100(**kwargs):
     label_type = label_type_specs[kwargs['label_size']]['kind']
     label_dimension = label_type_specs[kwargs['label_size']]['dots_printable']
-    kwargs['font_path'] = kwargs['font_path'][1:]
-    kwargs['font_path'] = re.sub('"','', kwargs['font_path'])
     im_font = ImageFont.truetype(kwargs['font_path'], kwargs['font_size'], encoding="utf-8")
     company_font = ImageFont.truetype(kwargs['font_path'], kwargs['company_font_size'])
     im = Image.new('L', (20, 20), 'white')
@@ -176,7 +174,7 @@ def create_label_im_62x100(**kwargs):
         else:
             horizontal_offset = kwargs['margin_left']
     offset = horizontal_offset, vertical_offset
-    if kwargs['logo'] != None and kwargs['logo'] != '':
+    if kwargs['logo'] is not None and kwargs['logo'] != '':
         logo = Image.open(kwargs['logo'], 'r')
         logo_width, logo_height = logo.size
         logo_offset = int((width - logo_width)/2), 20
@@ -186,7 +184,7 @@ def create_label_im_62x100(**kwargs):
     company_horizontal_offset = max((width - company_textsize[2]) // 2, 0)
     company_offset = company_horizontal_offset, company_vertical_offset
     draw.multiline_text(company_offset, kwargs['company'], (0), font=company_font, align=kwargs['align'])
-    draw.line((3, 10, width-3, 10), fill=0, width=3)
+    draw.line((3, 10, width - 3, 10), fill=0, width=3)
     if re.search('^type-', kwargs['label_tpl']):
         if re.search('^type-non-', kwargs['label_tpl']):
             label_tpl = re.sub('^type-non-', '', kwargs['label_tpl'])
@@ -194,27 +192,26 @@ def create_label_im_62x100(**kwargs):
             if label_tpl != ticket_type:
                 ticket_type = ticket_type.upper()
                 ticket_type_font = ImageFont.truetype(kwargs['font_path'], 60)
-                ticket_type_textsize = draw.multiline_textsize(ticket_type, font=ticket_type_font)
-                ticket_type_vertical_offset = height - ticket_type_textsize[1] - 20
-                ticket_type_horizontal_offset = max((width - ticket_type_textsize[0]) // 2, 0)
+                ticket_type_textsize = draw.textbbox((0, 0), ticket_type, font=ticket_type_font)
+                ticket_type_vertical_offset = height - ticket_type_textsize[3] - 20
+                ticket_type_horizontal_offset = max((width - ticket_type_textsize[2]) // 2, 0)
                 ticket_type_offset = ticket_type_horizontal_offset, ticket_type_vertical_offset
                 draw.multiline_text(ticket_type_offset, ticket_type, (0), font=ticket_type_font, align=kwargs['align'])
-                line_height = height - 20 - ticket_type_textsize[1]/2 + 8
+                line_height = height - 20 - ticket_type_textsize[3]/2 + 8
                 draw.line((3, line_height, ticket_type_horizontal_offset-10, line_height), fill=0, width=3)
-                draw.line((ticket_type_horizontal_offset+ticket_type_textsize[0]+10, line_height, width-3, line_height), fill=0, width=3)
+                draw.line((ticket_type_horizontal_offset+ticket_type_textsize[2]+10, line_height, width-3, line_height), fill=0, width=3)
             else:
                 draw.line((3, height-10, width-3, height-10),fill=0, width=3)
                 im.show()
     else:
         eventname_font = ImageFont.truetype(kwargs['font_path'], 26)
         eventname = kwargs['event_name']
-        eventname_textsize = draw.multiline_textsize(eventname, font=eventname_font)
-        eventname_vertical_offset = height - eventname_textsize[1] - 20
-        eventname_horizontal_offset = max((width - eventname_textsize[0]) // 2, 0)
+        eventname_textsize = draw.textbbox((0, 0), eventname, font=eventname_font)
+        eventname_vertical_offset = height - eventname_textsize[3] - 20
+        eventname_horizontal_offset = max((width - eventname_textsize[2]) // 2, 0)
         eventname_offset = eventname_horizontal_offset, eventname_vertical_offset
         draw.multiline_text(eventname_offset, eventname, (0), font=eventname_font, align=kwargs['align'])
 
-    # Save the badge image to MEDIA_ROOT
     # Save the badge image to MEDIA_ROOT
     try:
         im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{kwargs['name']}.png")
@@ -267,11 +264,11 @@ def print_text(**data):
         data['image'] = im
         # Save the badge image to MEDIA_ROOT
         try:
-            im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{kwargs['name']}.png")
+            im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{context['name']}.png")
         except FileNotFoundError:
             os.mkdir(settings.MEDIA_ROOT + '/badgeprint')
             os.mkdir(settings.MEDIA_ROOT + '/badgeprint/labels')
-            im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{kwargs['name']}.png")
+            im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{context['name']}.png")
     else:
         qlr = BrotherQLRaster(MODEL)
         rotate = 0 if data['orientation'] == 'standard' else 90
@@ -290,8 +287,8 @@ def print_text(**data):
 
         try:
             be = BACKEND_CLASS(BACKEND_STRING_DESCR)
-            #be.write(qlr.data)
-            #be.dispose()
+            be.write(qlr.data)
+            be.dispose()
             del be
         except Exception as e:
             print(f'print_text() write to printer exception {e}')
