@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -5,6 +6,23 @@ from django.contrib.auth.models import User
 def user_directory_path(instance, filename):
     return 'user_{0}/{1}'.format(instance.owner.id, filename)
 
+class Community(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(verbose_name='Name', max_length=100)
+    description = models.TextField(verbose_name='Description', blank=True)
+    create_time = models.DateTimeField(verbose_name='Create Time', auto_now_add=True)
+    update_time = models.DateTimeField(verbose_name='Update Time', auto_now=True)
+    creator = models.ForeignKey(User, verbose_name='Creator', on_delete=models.CASCADE, related_name='created_communities')
+    admins = models.ManyToManyField(User, verbose_name='Admins', related_name='admin_communities', blank=True)
+    members = models.ManyToManyField(User, verbose_name='Members', related_name='communities', blank=True)
+    active = models.BooleanField(verbose_name='Active', default=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name_plural = 'Communities'
+        ordering = ['name']
 
 class Event(models.Model):
     platform = models.CharField(verbose_name='Platform', max_length=30, default='badgeprint')

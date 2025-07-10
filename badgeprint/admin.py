@@ -1,6 +1,10 @@
 from django.contrib import admin
-from .models import Event, Printer, PrinterUser, Participant, Service
+from .models import Community, Event, Printer, PrinterUser, Participant, Service
 
+class CommunityAdmin(admin.ModelAdmin):
+    list_display = ['name']
+    list_filter = ['active']
+    search_fields = ['name', 'description']
 
 class EventAdmin(admin.ModelAdmin):
     list_display = ('name', 'code', 'owner', 'platform', 'active')
@@ -26,7 +30,7 @@ class ParticipantAdmin(admin.ModelAdmin):
 class ServiceAdmin(admin.ModelAdmin):
     list_display = ('id', 'title', 'description', 'user', 'create_time')
 
-
+admin.site.register(Community, CommunityAdmin)
 admin.site.register(Event, EventAdmin)
 admin.site.register(Printer, PrinterAdmin)
 admin.site.register(PrinterUser, PrinterUserAdmin)
