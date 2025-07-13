@@ -223,10 +223,9 @@ def create_label_im_62x100(**kwargs):
 
 
 def print_text(**data):
-    global DEBUG, FONTS, DEFAULT_FONT, MODEL, BACKEND_CLASS, BACKEND_STRING_DESCR, DEFAULT_ORIENTATION, DEFAULT_LABEL_SIZE
-    BACKEND_STRING_DESCR = data['printer_uri'] # "tcp://192.168.0.10:9100"
+    global DEBUG, FONTS, DEFAULT_FONT, MODEL, BACKEND_CLASS, DEFAULT_ORIENTATION, DEFAULT_LABEL_SIZE
     font_folder = "./static/fonts"
-    selected_backend = guess_backend(BACKEND_STRING_DESCR)
+    selected_backend = guess_backend(data['printer_uri'])
     BACKEND_CLASS = backend_factory(selected_backend)['backend_class']
     MODEL = data['printer_model'] # "QL-720NW"
     DEFAULT_LABEL_SIZE  = data['label_size'] # "62x100"
@@ -236,16 +235,13 @@ def print_text(**data):
     if font_folder:
         FONTS.update(get_fonts(font_folder))
 
-    status = False
-
     try:
         context = get_label_context(data['first_name'], data['last_name'], data['company'], data['label_size'])
     except LookupError as e:
-        print(f'print_text() LookupError error: {e}')
-        return status
+        return f'print_text() LookupError error: {e}'
 
     if context['name'] is None:
-        return status
+        return f'context name is empty.'
 
     if context['company'] is None:
         context['company'] = ''
@@ -258,70 +254,60 @@ def print_text(**data):
     context['label_tpl'] = data['label_tpl']
     context['ticket_type'] = data['ticket_type']
     im = eval('create_label_im_' + data['label_size'])(**context)
-    # Deprecating after must create image for performance.
-    #im.save(f"{settings.MEDIA_ROOT}/{context['name']}.png")
-    if data['debug']:
-        data['image'] = im
-        # Save the badge image to MEDIA_ROOT
-        try:
-            im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{context['name']}.png")
-        except FileNotFoundError:
-            os.mkdir(settings.MEDIA_ROOT + '/badgeprint')
-            os.mkdir(settings.MEDIA_ROOT + '/badgeprint/labels')
-            im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{context['name']}.png")
-    else:
-        qlr = BrotherQLRaster(MODEL)
-        rotate = 0 if data['orientation'] == 'standard' else 90
-        if context['label_size'] == '62x29':
-            rotate = 0
-        create_label(qlr, im, context['label_size'], threshold=context['threshold'], cut=True, rotate=rotate)
-        print(f'qlr.data ({type(qlr.data)}) len:{len(qlr.data)}')
+    data['image'] = im
+    image_path = f'{settings.MEDIA_ROOT}/badgeprint/labels'
+    image_file = f"{image_path}/{data['code']}-{data['label_size']}.png"
+    # Save the badge image to MEDIA_ROOT
+    try:
+        im.save(image_file)
+    except FileNotFoundError:
+        os.makedirs(image_path, exist_ok=True)  # Ensure the directory exists
+        im.save(image_file)
 
-        raster_file = f"{settings.MEDIA_ROOT}/badgeprint/labels/{context['name']}.raster"
-        # Ensure the directory exists
-        os.makedirs(os.path.dirname(raster_file), exist_ok=True)
+    qlr = BrotherQLRaster(MODEL)
+    rotate = 0 if data['orientation'] == 'standard' else 90
+    if context['label_size'] == '62x29':
+        rotate = 0
+    create_label(qlr, im, context['label_size'], threshold=context['threshold'], cut=True, rotate=rotate)
+    print(f'qlr.data ({type(qlr.data)}) len:{len(qlr.data)}')
 
-        # Save the bytes to a file
-        with open(raster_file, 'wb') as file:
-            file.write(qlr.data)
-
-        try:
-            be = BACKEND_CLASS(BACKEND_STRING_DESCR)
-            be.write(qlr.data)
-            be.dispose()
-            del be
-        except Exception as e:
-            print(f'print_text() write to printer exception {e}')
-            return status
+    # Save raster bytes to a file
+    raster_file = f"{image_path}/{data['code']}-{data['label_size']}.raster"
+    os.makedirs(os.path.dirname(raster_file), exist_ok=True) # Ensure the directory exists
+    with open(raster_file, 'wb') as file:
+        file.write(qlr.data)
+    file.close()
     status = True
+    # status = send_raster_file_to_printer(data['printer_uri'], raster_file)
     return status
 
 
-def print_raster_file(printer_uri, raster_file_path):
-    global DEBUG, FONTS, DEFAULT_FONT, MODEL, BACKEND_CLASS, BACKEND_STRING_DESCR, DEFAULT_ORIENTATION, DEFAULT_LABEL_SIZE
-    BACKEND_STRING_DESCR = printer_uri # "tcp://192.168.0.10:9100"
-    selected_backend = guess_backend(BACKEND_STRING_DESCR)
+def send_raster_file_to_printer(printer_uri, raster_file_path):
+    global DEBUG, FONTS, DEFAULT_FONT, MODEL, BACKEND_CLASS, DEFAULT_ORIENTATION, DEFAULT_LABEL_SIZE
+    selected_backend = guess_backend(printer_uri)
     BACKEND_CLASS = backend_factory(selected_backend)['backend_class']
     MODEL = "QL-720NW"
-    DEFAULT_LABEL_SIZE  = "62x100"
-    DEFAULT_ORIENTATION = "rotated"
+    # DEFAULT_LABEL_SIZE  = "62x100"
+    # DEFAULT_ORIENTATION = "rotated"
 
-    status = False
+    status = 'ok'
     qlr = BrotherQLRaster(MODEL)
 
     # Read the file as bytes
-    with open(raster_file_path, "rb") as file:
-        qlr.data = file.read()
+    try:
+        with open(raster_file_path, "rb") as file:
+            qlr.data = file.read()
+    except FileNotFoundError:
+        return 'raster file not found'
 
     try:
-        be = BACKEND_CLASS(BACKEND_STRING_DESCR)
+        be = BACKEND_CLASS(printer_uri)
         be.write(qlr.data)
         be.dispose()
         del be
     except Exception as e:
-        print(f'print_raster_file() write to printer exception {e}')
-        return status
-    status = True
+        print(f'send_raster_file_to_printer() write to printer exception {e}')
+        status = f'printer exception: {e}'
     return status
 
 

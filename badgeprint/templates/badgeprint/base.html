@@ -29,7 +29,7 @@
         {% if user.is_authenticated %}
           <li><a href="/admin/badgeprint/participant/add/" target="_blank">Add Participant</a></li>
           <li><a href="/admin" target="_blank">Django Admin</a></li>
-          <li><a href="/badgeprint/logoff">Logout</a></li>
+          <li><a href="{% url 'badgeprint_logoff' %}">Logout</a></li>
         {% endif %}
         </ul>
       </div>

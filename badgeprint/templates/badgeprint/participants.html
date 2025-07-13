@@ -20,29 +20,48 @@ $(document).ready( function () {
             "dataSrc": "data",
         },
         "columns": [
-            { 'data': 'code' },
-            { 'data': 'first_name' },
-            { 'data': 'last_name' },
+            { 'data': null,
+                      render: function(data, type, row) {
+                              return row.first_name + ' ' + row.last_name;
+                      }
+            },
             { 'data': 'company' },
             { 'data': 'phone' },
             { 'data': 'email' },
             { 'data': 'ticket_type' },
+            { 'data': 'code' },
             { 'data': 'status' },
+            { 'data': null,
+                      render: function(data, type, row) {
+                          let buttons;
+                          if (row.status == 'Attending') {
+                              buttons = '<a href="javascript:checkIn(\'' + row.code + '\')"><span class="glyphicon glyphicon-log-in" aria-hidden="true"></span></a>';
+                          } else if (row.status == 'Attended') {
+                              buttons = '<a href="javascript:checkOut(\'' + row.code + '\')"><span class="glyphicon glyphicon-log-out" aria-hidden="true"></span></a>';
+                          };
+                          buttons += ' <a href="javascript:printLabel(\'' + row.code + '\')"><span class="glyphicon glyphicon-print" aria-hidden="true"></span></a>';
+
+                          return buttons;
+                      },
+                      width: '1%',
+                      orderable: false
+            }
+
         ],
-        "columnDefs": [
+        columnDefs: [
             {
-                "render": function ( data, type, row ) {
+                render: function ( data, type, row ) {
                     if (data=='Attending') {
-                      //return '<a href="{% url 'list_all_event' %}participant/' + row['id']+ '/print" class="checkin">Check-in</a>';
-                      return '<a href="javascript:checkin(' + row['id']+ ')" class="checkin">Check-in</a>';
+                        return '<span class="label label-info">Attending</span>';
                     } else if (data == 'Attended') {
-                      return 'Attended (<a href="javascript:checkin(' + row['id']+ ')" class="checkin">Re-Print</a>)';
+                        return '<span class="label label-success">Attended</span>';
                     };
                 },
-                "targets": 7
+                targets: 6,
+                width: '1%'
             },
             {
-                "targets": [ 4, 5, 6 ],
+                "targets": [ 2, 3, 4 ],
                 "visible": false
             },
         ],
@@ -55,10 +74,104 @@ $(document).ready( function () {
         table.ajax.reload(null, false);
     }, 3000 );
 });
-function checkin(participantid) {
-    $.ajax({
-      url: "{% url 'list_all_event' %}participant/" + participantid + "/print"
-    })
+async function printLabel(code) {
+    const apiUrl = '{% url "print_raster_file" %}';
+
+    try {
+        const params = {
+            code: code
+        };
+        const response = await fetch(apiUrl, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'omit',
+            body: JSON.stringify(params)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return {
+            success: true,
+            data: data
+        };
+    } catch (error) {
+        console.error('PUT API call failed:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+}
+async function checkIn(code) {
+    const apiUrl = '{% url "api_check_in" %}';
+    try {
+        const params = {
+            code: code,
+            print_label: 1
+        };
+        const response = await fetch(apiUrl, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'omit',
+            body: JSON.stringify(params)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return {
+            success: true,
+            data: data
+        };
+    } catch (error) {
+        console.error('PUT API call failed:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+}
+async function checkOut(code) {
+    const apiUrl = '{% url "api_check_out" %}';
+    try {
+        const params = {
+            code: code,
+            print_label: 0
+        };
+        const response = await fetch(apiUrl, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'omit',
+            body: JSON.stringify(params)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return {
+            success: true,
+            data: data
+        };
+    } catch (error) {
+        console.error('PUT API call failed:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
 }
 function filterclear() {
     table.fnFilterClear();
@@ -72,24 +185,24 @@ $.getJSON( "{% url 'json_event_stats' event_id=id %}", function( data ) {
 {% endblock %}
 {% block sidebar %}
 <ul class="nav nav-sidebar">
-  <li class="active"><a href="{% url 'list_all_event' %}">Events</a></li>
+  <li class="active"><a href="{% url 'list_all_event' %}">All Events</a></li>
 </ul>
 {% endblock %}
 {% block content %}
-  <div>Check-ins: </div>
-  <div id="checkin_count"></div>
+  <h1>{{ event_name }}</h1>
+  <div>Attended: <span id="checkin_count">? / ?</span></div>
   <div class="table-responsive">
     <table class="table table-striped" id="participant_list">
       <thead>
         <tr>
-          <th>Code</th>
-          <th>First Name</th>
-          <th>Last Name</th>
+          <th>Name</th>
           <th>Company</th>
           <th>Phone</th>
           <th>Email</th>
           <th>Ticket Type</th>
+          <th>Code</th>
           <th>Status</th>
+          <th>Action</th>
         </tr>
       </thead>
     </table>

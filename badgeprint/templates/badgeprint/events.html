@@ -11,6 +11,15 @@ Event List
 <script type="text/javascript" src="{% static 'datatables.min.js' %}"></script>
 <script type="text/javascript" src="{% static 'Select-1.2.2/js/dataTables.select.min.js' %}"></script>
 <script>
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Months are 0-based
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
 $(document).ready( function () {
     var table = $('#event_list').DataTable( {
         "ajax": {
@@ -19,15 +28,19 @@ $(document).ready( function () {
             "dataSrc": "data",
         },
         "columns": [
-            { 'data': 'code' },
             { 'data': 'name' },
+            { data: null,
+                    render: function(data, type, row) {
+                          return formatDate(row['start_time']);
+                      },
+            }
         ],
         "columnDefs": [
             {
                 "render": function ( data, type, row ) {
                     return '<a href="{% url 'list_all_event' %}event/' + row['id'] + '">' + data + '</a>';
                 },
-                "targets": 1
+                "targets": 0
             },
         ],
         //dom: "Bfrtip",
@@ -42,7 +55,7 @@ $(document).ready( function () {
 {% endblock %}
 {% block sidebar %}
 <ul class="nav nav-sidebar">
-  <li class="active"><a href="{% url 'list_all_event' %}">Events</a></li>
+  <li class="active"><a href="{% url 'list_all_event' %}">All Events</a></li>
 </ul>
 {% endblock %}
 {% block content %}
@@ -50,8 +63,8 @@ $(document).ready( function () {
     <table class="table table-striped" id="event_list">
       <thead>
         <tr>
-          <th>Code</th>
-          <th>Event</th>
+          <th>Event Name</th>
+          <th>Event Time</th>
         </tr>
       </thead>
     </table>
