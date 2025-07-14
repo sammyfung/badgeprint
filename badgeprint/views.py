@@ -325,7 +325,7 @@ def api_check_in(request):
     service_metadata = {
         'code': code,
         'print_label': print_label,
-        'participant_id': participant.id
+        'participant_id': str(participant.id)
     }
     service = Service(title='Event Checkin', description=f'{code}', metadata=service_metadata)
     service.save()
@@ -348,7 +348,7 @@ def api_check_out(request):
     service_metadata = {
         'code': code,
         'print_label': print_label,
-        'participant_id': participant.id
+        'participant_id': str(participant.id)
     }
     service = Service(title='Event Checkout', description=f'{code}', metadata=service_metadata)
     service.save()

@@ -27,6 +27,7 @@ class Community(models.Model):
         ordering = ['name']
 
 class Event(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     platform = models.CharField(verbose_name='Platform', max_length=30, default='badgeprint')
     code = models.CharField(verbose_name='Code', max_length=60, null=True, blank=True)
     name = models.CharField(verbose_name='Name', max_length=120)
@@ -48,6 +49,7 @@ class Printer(models.Model):
         ('62x29', 'DK-11209 (62x29)'),
         ('62x100', 'DK-11202 (62x100)'),
     )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     location = models.CharField(verbose_name='Location', max_length=60, default="This Counter")
     uri = models.CharField(verbose_name='URI', max_length=120)
     label = models.CharField(verbose_name='Label', max_length=20, default="62x29", choices=LABEL_CHOICES)
@@ -70,6 +72,7 @@ class PrinterUser(models.Model):
 
 
 class Participant(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     event = models.ForeignKey(Event, verbose_name='Event', on_delete=models.CASCADE)
     code = models.CharField(verbose_name='Code', max_length=100, null=True, blank=True)
     first_name = models.CharField(verbose_name='First Name', max_length=60)
@@ -89,6 +92,7 @@ class Participant(models.Model):
 
 
 class Service(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(verbose_name='Title', max_length=100)
     user = models.ForeignKey(User, verbose_name='User', null=True, blank=True, on_delete=models.SET_NULL)
     description = models.TextField(verbose_name='Description', null=True, blank=True)
