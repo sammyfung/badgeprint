@@ -17,6 +17,7 @@ class Community(models.Model):
     creator = models.ForeignKey(User, verbose_name='Creator', on_delete=models.CASCADE, related_name='created_communities')
     admins = models.ManyToManyField(User, verbose_name='Admins', related_name='admin_communities', blank=True)
     members = models.ManyToManyField(User, verbose_name='Members', related_name='communities', blank=True)
+    public = models.BooleanField(verbose_name='Active', default=False)
     active = models.BooleanField(verbose_name='Active', default=True)
 
     def __str__(self):
@@ -46,13 +47,15 @@ class Event(models.Model):
 
 class Printer(models.Model):
     LABEL_CHOICES = (
-        ('62x29', 'DK-11209 (62x29)'),
         ('62x100', 'DK-11202 (62x100)'),
+        ('62x29', 'DK-11209 (62x29)'),
     )
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     location = models.CharField(verbose_name='Location', max_length=60, default="This Counter")
-    uri = models.CharField(verbose_name='URI', max_length=120)
+    ip = models.GenericIPAddressField(verbose_name='IP Address', null=True, blank=True)
+    uri = models.CharField(verbose_name='URI', max_length=120, null=True, blank=True)
     label = models.CharField(verbose_name='Label', max_length=20, default="62x29", choices=LABEL_CHOICES)
+    event = models.ManyToManyField(Event, verbose_name='Event', blank=True)
     debug = models.BooleanField(verbose_name='Debug', default=False)
     create_time = models.DateTimeField(verbose_name='Create Time', auto_now_add=True)
     update_time = models.DateTimeField(verbose_name='Update Time', auto_now=True)
@@ -69,6 +72,13 @@ class PrinterUser(models.Model):
 
     def __str__(self):
         return "%s - %s"%(self.user, self.printer)
+
+
+class UserPrinter(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, verbose_name='User', on_delete=models.CASCADE)
+    printer = models.ForeignKey(Printer, verbose_name='Printer', on_delete=models.CASCADE)
+    event = models.ForeignKey(Event, verbose_name='Event', null=True, blank=True, on_delete=models.SET_NULL)
 
 
 class Participant(models.Model):

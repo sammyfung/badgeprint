@@ -5,6 +5,7 @@ class CommunityAdmin(admin.ModelAdmin):
     list_display = ['name']
     list_filter = ['active']
     search_fields = ['name', 'description']
+    raw_id_fields = ['admins', 'members']
 
 class EventAdmin(admin.ModelAdmin):
     list_display = ('name', 'owner', 'platform', 'active')
@@ -12,7 +13,7 @@ class EventAdmin(admin.ModelAdmin):
     search_fields = ['code', 'name', 'owner']
 
 class PrinterAdmin(admin.ModelAdmin):
-    list_display = ('uri', 'location', 'label')
+    list_display = ('ip', 'uri', 'location', 'label')
 
 class PrinterUserAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'printer', 'ticket_type')

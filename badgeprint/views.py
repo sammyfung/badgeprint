@@ -3,15 +3,21 @@ from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
+from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
-from .models import Event, Printer, PrinterUser, Participant, Service
+from rest_framework.response import Response
+from .models import Community, Event, Printer, PrinterUser, Participant, Service
 from .lib.labelprint import print_text, send_raster_file_to_printer
+from .lib.brotherql import BrotherQLPrinter
 from .serializers import PrinterSerializer
-import json, os
+import json, os, requests
 
 def list_all_event(request):
     # List all events
@@ -335,7 +341,11 @@ def api_check_in(request):
         status = print_raster_file_by_code(code)
     else:
         status = {'status': 'success', 'printer_reload': 0}
-    return JsonResponse({'status': status['status'], 'printer_reload': status['printer_reload']})
+    return JsonResponse({'first_name': participant.first_name,
+                         'last_name': participant.last_name,
+                         'company': participant.company,
+                         'status': status['status'],
+                         'printer_reload': status['printer_reload']})
 
 @api_view(['PUT'])
 def api_check_out(request):
@@ -359,3 +369,162 @@ def api_check_out(request):
     else:
         status = {'status': 'success', 'printer_reload': 0}
     return JsonResponse({'status': status['status'], 'printer_reload': status['printer_reload']})
+
+
+def qrcode_checkin(request):
+    return render(request, 'badgeprint/checkin.html')
+
+@api_view(['GET'])
+def api_scan_local_printers(request):
+    ql = BrotherQLPrinter()
+    results = ql.scan_printers()
+    url = "https://sammy.hk/go/badgeprint/api/update_printers"
+    url = "http://localhost:8000/badgeprint/api/update_printers"
+
+    headers = {
+        "Content-Type": "application/json",
+    }
+    try:
+        # Make the PUT request with a 3-second timeout
+        response = requests.put(url, data=json.dumps(data), headers=headers, timeout=3)
+
+        # Check the response
+        if response.status_code == 200:
+            print("Success:", response.json())
+        else:
+            print(f"Error: {response.status_code} - {response.text}")
+
+    except requests.exceptions.Timeout:
+        print("Request timed out after 3 seconds")
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+
+    return JsonResponse({'printers': results})
+
+@api_view(['PUT'])
+def api_update_printers(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        requester_ip = x_forwarded_for.split(',')[0]
+    else:
+        requester_ip = request.META.get('REMOTE_ADDR')
+
+    # Get the JSON data
+    data = request.data
+    printers = data.get('printers', [])
+
+    if not isinstance(printers, list):
+        return Response(
+            {"error": "Printers must be an array"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Validate printer URLs
+    for url in printers:
+        if not isinstance(url, str) or not url.startswith('tcp://'):
+            return Response(
+                {"error": f"Invalid printer URL format: {url}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    try:
+        # Get or create printer objects
+        printer_objects = []
+        for url in printers:
+            printer, created = Printer.objects.get_or_create(
+                ip=requester_ip,
+                uri=url
+            )
+            if not created:
+                # Update existing printer's IP if needed
+                printer.added_by_ip = requester_ip
+                printer.save()
+            printer_objects.append(printer)
+
+        # Serialize the response
+        serializer = PrinterSerializer(printer_objects, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+def register(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, 'Registration successful!')
+            return redirect('community_list')
+    else:
+        form = UserCreationForm()
+    return render(request, 'badgeprint/register.html', {'form': form})
+
+def community_list(request):
+    communities = Community.objects.filter(public=True, active=True)
+    return render(request, 'badgeprint/community_list.html', {'communities': communities})
+
+@login_required
+def dashboard(request):
+    owned_communities = Community.objects.filter(creator=request.user, active=True)
+    admin_communities = Community.objects.filter(admins=request.user, active=True)
+    member_communities = Community.objects.filter(members=request.user, active=True)
+    return render(request, 'communities/dashboard.html', {
+        'owned_communities': owned_communities,
+        'admin_communities': admin_communities,
+        'member_communities': member_communities
+    })
+
+@login_required
+def create_community(request):
+    if request.method == 'POST':
+        form = CommunityForm(request.POST)
+        if form.is_valid():
+            community = form.save(commit=False)
+            community.creator = request.user
+            community.save()
+            community.members.add(request.user)
+            messages.success(request, 'Community created successfully!')
+            return redirect('dashboard')
+    else:
+        form = CommunityForm()
+    return render(request, 'communities/community_form.html', {'form': form, 'title': 'Create Community'})
+
+@login_required
+def update_community(request, community_id):
+    community = get_object_or_404(Community, id=community_id, active=True)
+    if request.user != community.creator and request.user not in community.admins.all():
+        messages.error(request, 'You do not have permission to edit this community.')
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        form = CommunityForm(request.POST, instance=community)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Community updated successfully!')
+            return redirect('dashboard')
+    else:
+        form = CommunityForm(instance=community)
+    return render(request, 'communities/community_form.html', {
+        'form': form,
+        'title': 'Update Community',
+        'community': community
+    })
+
+@login_required
+def deactivate_community(request, community_id):
+    community = get_object_or_404(Community, id=community_id, creator=request.user)
+    if request.method == 'POST':
+        community.active = False
+        community.save()
+        messages.success(request, 'Community deactivated successfully!')
+        return redirect('dashboard')
+    return render(request, 'communities/deactivate_confirm.html', {'community': community})
+
+def community_detail(request, community_id):
+    community = get_object_or_404(Community, id=community_id, active=True)
+    return render(request, 'communities/community_detail.html', {'community': community})
