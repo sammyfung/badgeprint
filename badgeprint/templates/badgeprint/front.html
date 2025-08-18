@@ -1,7 +1,7 @@
 {% extends "badgeprint/base.html" %}
 {% load static %}
 {% block title %}
-Event List
+Public Events
 {% endblock %}
 {% block css %}
 <link rel="stylesheet" type="text/css" href="{% static 'datatables.min.css' %}"/>
@@ -43,6 +43,10 @@ $(document).ready( function () {
                 "targets": 0
             },
         ],
+        "language": {
+          "emptyTable": 'No public events.',
+          "lengthMenu": 'Show _MENU_ public events',
+        },
         //dom: "Bfrtip",
         "select": false,
         "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]]
@@ -55,7 +59,7 @@ $(document).ready( function () {
 {% endblock %}
 {% block sidebar %}
 <ul class="nav nav-sidebar">
-  <li class="active"><a href="{% url 'list_my_event' %}">My Events</a></li>
+  <li class="active"><a href="{% url 'list_all_event' %}">Public Events</a></li>
 </ul>
 {% endblock %}
 {% block content %}

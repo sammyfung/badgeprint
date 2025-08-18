@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
+from django.db.models import Q
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets, status
@@ -22,32 +23,58 @@ import json, os, requests
 def list_all_event(request):
     # List all events
     if request.user.is_authenticated:
-        return render(request, 'badgeprint/events.html')
+        return HttpResponseRedirect(reverse('list_my_event'))
+    else:
+        context = {
+            'json_api': 'json_list_public_event',
+        }
+        return render(request, 'badgeprint/front.html', context)
+        # return HttpResponseRedirect(reverse('badgeprint_logon'))
+
+def list_my_event(request):
+    # List my events
+    if request.user.is_authenticated:
+        context = {
+            'json_api': 'json_list_my_event',
+        }
+        return render(request, 'badgeprint/events.html', context)
     else:
         return HttpResponseRedirect(reverse('badgeprint_logon'))
 
+def json_list_public_event(request):
+    # return all public events in json
+    item_list = Event.objects.filter(public=True, active=True).order_by('-start_time')
+    total = item_list.count()
+    json_items = {'total': total, 'data': []}
+    for i in item_list:
+        json_item = dict()
+        json_item['id'] = i.id
+        json_item['code'] = f"{i.platform}-{i.code}"
+        json_item['name'] = i.name
+        json_item['logo'] = f"{i.logo}"
+        json_item['start_time'] = i.start_time
+        json_items['data'].append(json_item)
+    return JsonResponse(json_items)
 
-def json_all_event(request):
+def json_list_my_event(request):
     # return all events in json
     if request.user.is_authenticated:
-        item_list = Event.objects.filter(id__gte=0, active=True).order_by('-id')
+        #communities_list = Community.objects.filter(admins__contains=1, active=True)
+        # item_list = Event.objects.filter((Q(owner=request.user) | Q(community__in=communities_list)) & Q(active=True)).order_by('-start_time')
+        item_list = Event.objects.filter((Q(owner=request.user)) & Q(active=True)).order_by('-start_time')
         total = item_list.count()
         json_items = {'total': total, 'data': []}
         for i in item_list:
-            json_item = {}
+            json_item = dict()
             json_item['id'] = i.id
-            if i.platform=='eventbrite':
-                json_item['code'] = "%s" % (i.platform, i.code)
-            else:
-                json_item['code'] = "%s" % i.platform
-            json_item['name'] = "%s" % i.name
-            json_item['logo'] = "%s" % i.logo
+            json_item['code'] = f"{i.platform}-{i.code}"
+            json_item['name'] = i.name
+            json_item['logo'] = f"{i.logo}"
             json_item['start_time'] = i.start_time
             json_items['data'].append(json_item)
         return JsonResponse(json_items)
     else:
         raise Http404("Authentication is required.")
-
 
 def list_event_participant(request, event_id):
     # List all participants from requested event.
@@ -67,17 +94,17 @@ def json_event_participant(request, event_id):
         attended = item_list.filter(status='Attended').count()
         json_items = {'total': total, 'attended': attended, 'data': []}
         for i in item_list:
-            json_item = {}
+            json_item = dict()
             json_item['id'] = i.id
-            json_item['event'] = "%s" % i.event
-            json_item['code'] = "%s" % i.code
-            json_item['ticket_type'] = "%s" % i.ticket_type
-            json_item['first_name'] = "%s" % i.first_name
-            json_item['last_name'] = "%s" % i.last_name
-            json_item['company'] = "%s" % i.company
-            json_item['phone'] = "%s" % i.phone
-            json_item['email'] = "%s" % i.email
-            json_item['status'] = "%s" % i.status
+            json_item['event'] = f"{i.event}"
+            json_item['code'] = i.code
+            json_item['ticket_type'] = i.ticket_type
+            json_item['first_name'] = i.first_name
+            json_item['last_name'] = i.last_name
+            json_item['company'] = i.company
+            json_item['phone'] = i.phone
+            json_item['email'] = i.email
+            json_item['status'] = i.status
             json_items['data'].append(json_item)
         return JsonResponse(json_items)
     else:
@@ -231,7 +258,7 @@ def badgeprint_logon(request):
 
 
 def badgeprint_logoff(request):
-    if request.user.is_authenticated():
+    if request.user.is_authenticated:
         logout(request)
     return HttpResponseRedirect(reverse('badgeprint_logon'))
 

@@ -2,14 +2,17 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path(r'my/event/<uuid:event_id>', views.list_event_participant, name='list_event_participant'),
+    path(r'my/event/', views.list_my_event, name='list_my_event'),
     path(r'event/<uuid:event_id>', views.list_event_participant, name='list_event_participant'),
     path(r'event/checkinreset/<uuid:event_id>', views.event_checkinreset, name='event_checkinreset'),
     path(r'participant/<uuid:participant_id>/print', views.print_participant_label, name='print_participant_label'),
     path(r'api/participant/<uuid:participant_id>/print', views.print_participant_label_api,
         name='print_participant_label_api'),
-    path(r'api/event.json', views.json_all_event, name='json_all_event'),
-    path(r'api/event/<uuid:event_id>.json', views.json_event_participant, name='json_event_participant'),
-    path(r'api/event/stats/<uuid:event_id>.json', views.json_event_stats, name='json_event_stats'),
+    path(r'api/event', views.json_list_public_event, name='json_list_public_event'),
+    path(r'api/my/event', views.json_list_my_event, name='json_list_my_event'),
+    path(r'api/my/event/<uuid:event_id>', views.json_event_participant, name='json_event_participant'),
+    path(r'api/my/event/<uuid:event_id>/stats', views.json_event_stats, name='json_event_stats'),
     path(r'api/print', views.print_raster_file, name='print_raster_file'),
     path(r'api/scan_local_printers', views.api_scan_local_printers, name='api_scan_local_printers'),
     path(r'api/update_printers', views.api_update_printers, name='api_update_printers'),
