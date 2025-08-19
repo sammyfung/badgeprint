@@ -191,6 +191,7 @@ $.getJSON( "{% url 'json_event_stats' event_id=id %}", function( data ) {
 {% block content %}
   <h1>{{ event_name }}</h1>
   <div>Attended: <span id="checkin_count">? / ?</span></div>
+  <div><a href="/admin/badgeprint/participant/add/" target="_blank"><button type="button" class="btn btn-default navbar-btn"><span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Participant</button></a></div>
   <div class="table-responsive">
     <table class="table table-striped" id="participant_list">
       <thead>

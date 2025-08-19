@@ -27,8 +27,9 @@
       <div id="navbar" class="navbar-collapse collapse">
         <ul class="nav navbar-nav navbar-right">
         {% if user.is_authenticated %}
-          <li><a href="/admin/badgeprint/participant/add/" target="_blank">Add Participant</a></li>
+          {% if user.is_superuser %}
           <li><a href="/admin" target="_blank">Django Admin</a></li>
+          {% endif %}
           <li><a href="{% url 'badgeprint_logoff' %}">Logout</a></li>
         {% else %}
           <li><a href="{% url 'badgeprint_logon' %}">Login</a></li>

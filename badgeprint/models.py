@@ -90,6 +90,7 @@ class UserPrinter(models.Model):
 class Participant(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     event = models.ForeignKey(Event, verbose_name='Event', on_delete=models.CASCADE)
+    user = models.ForeignKey(User, verbose_name='User', null=True, blank=True, on_delete=models.SET_NULL)
     code = models.CharField(verbose_name='Code', max_length=100, null=True, blank=True)
     first_name = models.CharField(verbose_name='First Name', max_length=60)
     last_name = models.CharField(verbose_name='Last Name', max_length=60, null=True, blank=True)
