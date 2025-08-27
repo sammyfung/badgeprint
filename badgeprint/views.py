@@ -1,4 +1,4 @@
-from django.shortcuts import render, Http404
+from django.shortcuts import render, redirect, Http404
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
@@ -17,8 +17,8 @@ from rest_framework.response import Response
 from .models import Community, Event, Printer, PrinterUser, Participant, Service
 from .lib.labelprint import print_text, send_raster_file_to_printer
 from .lib.brotherql import BrotherQLPrinter
-from .serializers import PrinterSerializer
-import json, os, requests
+from .serializers import ParticipantSerializer, PrinterSerializer
+import json, os, requests, uuid
 
 def list_all_event(request):
     # List all events
@@ -81,7 +81,8 @@ def list_event_participant(request, event_id):
     if request.user.is_authenticated:
         event = Event.objects.get(id=event_id)
         return render(request, 'badgeprint/participants.html', {'id': event_id,
-                                                                'event_name': event.name})
+                                                                'event_name': event.name,
+                                                                'event_id': event.id})
     else:
         raise Http404("Authentication is required.")
 
@@ -264,7 +265,15 @@ def badgeprint_logoff(request):
 
 
 def create_label(code):
-    participant = Participant.objects.get(code=code)
+    try:
+        participant = Participant.objects.get(code=code)
+    except Participant.DoesNotExist:
+        participant = None
+    try:
+        if not participant:
+            participant = Participant.objects.get(id=code)
+    except Participant.DoesNotExist:
+        return JsonResponse({'status': 'not found'})
     printer_reload = False
     printers = cache.get('badgeprint_printers')
     if not printers:
@@ -352,7 +361,15 @@ def api_check_in(request):
     data = json.loads(request.body)
     code = data.get('code')
     print_label = data.get('print_label')
-    participant = Participant.objects.get(code=code)
+    try:
+        participant = Participant.objects.get(code=code)
+    except Participant.DoesNotExist:
+        participant = None
+    try:
+        if not participant:
+            participant = Participant.objects.get(id=code)
+    except Participant.DoesNotExist:
+        return JsonResponse({'status': 'not found'})
     participant.status = 'Attended'
     participant.save()
     service_metadata = {
@@ -379,7 +396,15 @@ def api_check_out(request):
     data = json.loads(request.body)
     code = data.get('code')
     print_label = data.get('print_label')
-    participant = Participant.objects.get(code=code)
+    try:
+        participant = Participant.objects.get(code=code)
+    except Participant.DoesNotExist:
+        participant = None
+    try:
+        if not participant:
+            participant = Participant.objects.get(id=code)
+    except Participant.DoesNotExist:
+        return JsonResponse({'status': 'not found'})
     participant.status = 'Attending'
     participant.save()
     service_metadata = {
@@ -555,3 +580,17 @@ def deactivate_community(request, community_id):
 def community_detail(request, community_id):
     community = get_object_or_404(Community, id=community_id, active=True)
     return render(request, 'communities/community_detail.html', {'community': community})
+
+def participant_create_view(request, event_id):
+    if request.method == 'POST':
+        data = request.POST.copy()
+        data['event'] = event_id
+        serializer = ParticipantSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save(id=uuid.uuid4(), active=True)
+            messages.success(request, 'Participant created successfully.')
+            return redirect('list_event_participant', event_id=event_id)
+        else:
+            messages.error(request, 'Error creating participant.')
+            return render(request, 'badgeprint/participant_form.html', {'errors': serializer.errors})
+    return render(request, 'badgeprint/participant_form.html', {'events': Event.objects.all()})
