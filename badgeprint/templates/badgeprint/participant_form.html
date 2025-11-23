@@ -1,0 +1,88 @@
+{% extends "badgeprint/base.html" %}
+{% load static %}
+{% block title %}
+{% if participant %}Edit Participant{% else %}Add Participant{% endif %}
+{% endblock %}
+{% block css %}
+{% endblock %}
+{% block js %}
+{% endblock %}
+{% block sidebar %}
+<ul class="nav nav-sidebar">
+  <li class="active"><a href="{% url 'list_all_event' %}">All Events</a></li>
+</ul>
+{% endblock %}
+{% block content %}
+        <h1>{% if participant %}Edit Participant{% else %}Add Participant{% endif %}</h1>
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+        {% if errors %}
+            <div class="alert alert-danger">
+                <ul>
+                    {% for field, error_list in errors.items %}
+                        {% for error in error_list %}
+                            <li>{{ field }}: {{ error }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="event" class="form-label">Event</label>
+                <select class="form-select" id="event" name="event" required>
+                    {% for event in events %}
+                        <option value="{{ event.id }}" {% if participant.event.id == event.id %}selected{% endif %}>{{ event }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="first_name" class="form-label">First Name</label>
+                <input type="text" class="form-control" id="first_name" name="first_name" value="{{ participant.first_name|default:'' }}" required>
+            </div>
+            <div class="mb-3">
+                <label for="last_name" class="form-label">Last Name</label>
+                <input type="text" class="form-control" id="last_name" name="last_name" value="{{ participant.last_name|default:'' }}">
+            </div>
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" class="form-control" id="email" name="email" value="{{ participant.email|default:'' }}">
+            </div>
+            <div class="mb-3">
+                <label for="company" class="form-label">Company</label>
+                <input type="text" class="form-control" id="company" name="company" value="{{ participant.company|default:'' }}">
+            </div>
+            <div class="mb-3">
+                <label for="phone" class="form-label">Phone</label>
+                <input type="text" class="form-control" id="phone" name="phone" value="{{ participant.phone|default:'' }}">
+            </div>
+            <div class="mb-3">
+                <label for="status" class="form-label">Status</label>
+                <select class="form-select" id="status" name="status">
+                    <option value="Attending" {% if participant.status == 'Attending' %}selected{% endif %}>Attending</option>
+                    <option value="Attended" {% if participant.status == 'Attended' %}selected{% endif %}>Attended</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="ticket_type" class="form-label">Ticket Type</label>
+                <input type="text" class="form-control" id="ticket_type" name="ticket_type" value="{{ participant.ticket_type|default:'' }}">
+            </div>
+            <div class="mb-3">
+                <label for="code" class="form-label">Code</label>
+                <input type="text" class="form-control" id="code" name="code" value="{{ participant.code|default:'' }}">
+            </div>
+            <div class="mb-3">
+                <label for="other" class="form-label">Other Information</label>
+                <textarea class="form-control" id="other" name="other">{{ participant.other|default:'' }}</textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a href="{% url 'list_my_event' %}" class="btn btn-secondary">Cancel</a>
+        </form>
+{% endblock %}

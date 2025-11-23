@@ -2,12 +2,14 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path(r'my/event/<uuid:event_id>', views.list_event_participant, name='list_event_participant'),
-    path(r'my/event/', views.list_my_event, name='list_my_event'),
-    path(r'event/<uuid:event_id>', views.list_event_participant, name='list_event_participant'),
-    path(r'event/<uuid:event_id>/participants/create/', views.participant_create_view, name='participant_create_view'),
-    path(r'event/checkinreset/<uuid:event_id>', views.event_checkinreset, name='event_checkinreset'),
-    path(r'participant/<uuid:participant_id>/print', views.print_participant_label, name='print_participant_label'),
+    path(r'my/<uuid:event_id>/participant/', views.participant_create_view, name='participant_create_view'),
+    path(r'my/<uuid:event_id>/reset-checkin/', views.event_checkinreset, name='event_checkinreset'),
+    path(r'my/<uuid:event_id>', views.get_event, name='get_my_event'),
+    path(r'my/', views.list_my_event, name='list_my_event'),
+    path(r'my/participant/', views.list_my_participant, name='list_my_participant'),
+    path(r'my/participant/<uuid:participant_id>/edit', views.participant_edit, name='participant_edit'),
+    path(r'my/participant/<uuid:participant_id>/print', views.print_participant_label, name='print_participant_label'),
+    path(r'<uuid:event_id>', views.get_event, name='get_event'),
     path(r'api/participant/<uuid:participant_id>/print', views.print_participant_label_api,
         name='print_participant_label_api'),
     path(r'api/event', views.json_list_public_event, name='json_list_public_event'),

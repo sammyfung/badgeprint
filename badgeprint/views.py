@@ -76,15 +76,17 @@ def json_list_my_event(request):
     else:
         raise Http404("Authentication is required.")
 
-def list_event_participant(request, event_id):
-    # List all participants from requested event.
+def get_event(request, event_id):
+    event = Event.objects.get(id=event_id)
     if request.user.is_authenticated:
-        event = Event.objects.get(id=event_id)
+        # List all participants from requested event.
         return render(request, 'badgeprint/participants.html', {'id': event_id,
                                                                 'event_name': event.name,
                                                                 'event_id': event.id})
     else:
-        raise Http404("Authentication is required.")
+        return render(request, 'badgeprint/event.html', {'id': event_id,
+                                                        'event_name': event.name,
+                                                        'event_id': event.id})
 
 
 def json_event_participant(request, event_id):
@@ -593,4 +595,14 @@ def participant_create_view(request, event_id):
         else:
             messages.error(request, 'Error creating participant.')
             return render(request, 'badgeprint/participant_form.html', {'errors': serializer.errors})
+    return render(request, 'badgeprint/participant_form.html', {'events': Event.objects.all()})
+
+def participant_edit(request, participant_id):
+    if request.method == 'POST':
+        return redirect('list_my_event')
+    return render(request, 'badgeprint/participant_form.html', {'events': Event.objects.all()})
+
+def list_my_participant(request):
+    if request.method == 'POST':
+        return redirect('list_my_event')
     return render(request, 'badgeprint/participant_form.html', {'events': Event.objects.all()})

@@ -1,3 +1,4 @@
 Django==5.2.5
 pillow==11.3.0
 brother-ql==0.9.4
+requests==2.32.3
