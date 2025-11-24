@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkin | badgeprint</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <link rel="stylesheet" href="/static/css/checkin.css">
+</head>
+<body>
+    <h1>badgeprint Checkin</h1>
+    <video id="video" width="300" height="300" style="display: none;"></video>
+    <canvas id="canvas" width="300" height="300"></canvas>
+    <button id="startButton">Start Scanning</button>
+    <div id="output"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const output = document.getElementById('output');
+        const startButton = document.getElementById('startButton');
+        let stream = null;
+        let lastScanTime = 0;
+        const scanCooldown = 2000; // 2 seconds cooldown between scans
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                video.srcObject = stream;
+                video.play();
+                startButton.textContent = 'Stop Scanning';
+                scanQRCode();
+            } catch (err) {
+                output.innerHTML = `<p style="color: red;">Error accessing camera: ${err.message}</p>`;
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                video.srcObject = null;
+                startButton.textContent = 'Start Scanning';
+            }
+        }
+
+        function formatCurrentTime() {
+            const now = new Date();
+            return now.toLocaleString('en-UK', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            });
+        }
+
+        function scanQRCode() {
+            if (!stream) return;
+
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+            const currentTime = Date.now();
+            const headers = { 'Content-Type': 'application/json' };
+
+            if (code && (currentTime - lastScanTime > scanCooldown)) {
+                // QR code detected, process it without stopping the camera
+                lastScanTime = currentTime;
+                const scanTime = formatCurrentTime();
+                output.innerHTML = '<p>Processing check-in...</p>';
+
+                const csrfToken = getCookie('csrftoken');
+                if (csrfToken) {
+                    headers['X-CSRFToken'] = csrfToken;
+                }
+
+                fetch('{% url "api_check_in" %}', {
+                    method: 'PUT',
+                    headers: headers,
+                    body: JSON.stringify({ code: code.data })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        if (response.status === 404) {
+                            output.innerHTML = '<p style="color: orange;"><strong>${data.status}</strong></p>';
+                            setTimeout(() => { output.innerHTML = ''; }, 5000);
+                            return Promise.reject(new Error('not found'));
+                        }
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('data', data);
+                    if (data.error) {
+                        if (data.status) {
+                            output.innerHTML = `<p style="color: red;">Error: ${data.status}</p>`;
+                        } else {
+                            output.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
+                        }
+                    } else {
+                        output.innerHTML = `
+                            <p><strong>Check-In Successful!</strong></p>
+                            <p>${data.first_name} ${data.last_name}</p>
+                            <p>${data.company}</p>
+                            <p>${scanTime}</p>
+                        `;
+                    }
+                    // Clear output after 5 seconds to prepare for next scan
+                    setTimeout(() => {
+                        output.innerHTML = '';
+                    }, 5000);
+                })
+                .catch(err => {
+                    output.innerHTML = `<p style="color: red;">Error: ${err.message}</p>`;
+                    setTimeout(() => {
+                        output.innerHTML = '';
+                    }, 5000);
+                });
+            }
+
+            // Continue scanning
+            requestAnimationFrame(scanQRCode);
+        }
+
+        startButton.addEventListener('click', () => {
+            if (stream) {
+                stopCamera();
+            } else {
+                startCamera();
+            }
+        });
+    </script>
+</body>
+</html>

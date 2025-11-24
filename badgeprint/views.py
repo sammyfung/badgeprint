@@ -364,14 +364,17 @@ def api_check_in(request):
     code = data.get('code')
     print_label = data.get('print_label')
     try:
-        participant = Participant.objects.get(code=code)
+        participant = Participant.objects.get(code=code, status='Attending')
     except Participant.DoesNotExist:
         participant = None
-    try:
-        if not participant:
-            participant = Participant.objects.get(id=code)
-    except Participant.DoesNotExist:
-        return JsonResponse({'status': 'not found'})
+    if not participant:
+        try:
+            uuid.UUID(code)
+            participant = Participant.objects.get(id=code, status='Attending')
+        except ValueError:
+            return JsonResponse({'status': 'non valid id'}, status=404)
+        except Participant.DoesNotExist:
+            return JsonResponse({'status': 'not found'}, status=404)
     participant.status = 'Attended'
     participant.save()
     service_metadata = {
@@ -399,14 +402,17 @@ def api_check_out(request):
     code = data.get('code')
     print_label = data.get('print_label')
     try:
-        participant = Participant.objects.get(code=code)
+        participant = Participant.objects.get(code=code, status='Attended')
     except Participant.DoesNotExist:
         participant = None
-    try:
-        if not participant:
-            participant = Participant.objects.get(id=code)
-    except Participant.DoesNotExist:
-        return JsonResponse({'status': 'not found'})
+    if not participant:
+        try:
+            uuid.UUID(code)
+            participant = Participant.objects.get(id=code, status='Attended')
+        except ValueError:
+            return JsonResponse({'status': 'non valid id'}, status=404)
+        except Participant.DoesNotExist:
+            return JsonResponse({'status': 'not found'}, status=404)
     participant.status = 'Attending'
     participant.save()
     service_metadata = {
