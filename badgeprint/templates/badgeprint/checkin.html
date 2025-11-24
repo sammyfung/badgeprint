@@ -1,19 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkin | badgeprint</title>
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
-    <link rel="stylesheet" href="/static/css/checkin.css">
-</head>
-<body>
-    <h1>badgeprint Checkin</h1>
-    <video id="video" width="300" height="300" style="display: none;"></video>
-    <canvas id="canvas" width="300" height="300"></canvas>
-    <button id="startButton">Start Scanning</button>
-    <div id="output"></div>
-
+{% extends "badgeprint/base_nosidebar.html" %}
+{% load static %}
+{% block title %}
+Checkin
+{% endblock %}
+{% block css %}
+<link rel="stylesheet" href="/static/css/checkin.css">
+{% endblock %}
+{% block js %}
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script>
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
@@ -152,5 +146,13 @@
             }
         });
     </script>
-</body>
-</html>
+{% endblock %}
+{% block content %}
+<div class="container col-md-4">
+<h1>Checkin</h1>
+<video id="video" width="300" height="300" style="display: none;"></video>
+<canvas id="canvas" width="300" height="300"></canvas>
+<button id="startButton">Start Scanning</button>
+<div id="output"></div>
+</div>
+{% endblock %}
