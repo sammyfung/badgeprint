@@ -1,0 +1,25 @@
+{% extends "badgeprint/base.html" %}
+{% load static %}
+{% block title %}
+Event List
+{% endblock %}
+{% block css %}
+<link rel="stylesheet" type="text/css" href="{% static 'datatables.min.css' %}"/>
+<link rel="stylesheet" type="text/css" href="{% static 'Select-1.2.2/css/select.dataTables.min.css' %}"/>
+{% endblock %}
+{% block js %}
+<script type="text/javascript" src="{% static 'datatables.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'Select-1.2.2/js/dataTables.select.min.js' %}"></script>
+<script>
+</script>
+{% endblock %}
+{% block sidebar %}
+<ul class="nav nav-sidebar">
+  <li class="active"><a href="{% url 'list_my_event' %}">My Events</a></li>
+</ul>
+{% endblock %}
+{% block content %}
+  <div class="table-responsive">
+
+ </div>
+{% endblock %}
