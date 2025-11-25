@@ -38,7 +38,7 @@ $(document).ready( function () {
         "columnDefs": [
             {
                 "render": function ( data, type, row ) {
-                    return '<a href="{% url 'list_all_event' %}event/' + row['id'] + '">' + data + '</a>';
+                    return '<a href="{% url 'list_all_event' %}' + row['id'] + '">' + data + '</a>';
                 },
                 "targets": 0
             },
