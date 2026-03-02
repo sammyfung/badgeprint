@@ -2,14 +2,13 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path("dev/", views.UpcomingEventsListView.as_view(), name="upcoming"),
-    path(r'my/<uuid:event_id>/participant/', views.participant_create_view, name='participant_create_view'),
-    path(r'my/<uuid:event_id>/reset-checkin/', views.event_checkinreset, name='event_checkinreset'),
-    path(r'my/<uuid:event_id>', views.get_event, name='get_my_event'),
-    path(r'my/', views.list_my_event, name='list_my_event'),
-    path(r'my/participant/', views.list_my_participant, name='list_my_participant'),
-    path(r'my/participant/<uuid:participant_id>/edit', views.participant_edit, name='participant_edit'),
-    path(r'my/participant/<uuid:participant_id>/print', views.print_participant_label, name='print_participant_label'),
+    path(r'dashboard/<uuid:event_id>/participant/', views.participant_create_view, name='participant_create_view'),
+    path(r'dashboard/<uuid:event_id>/reset-checkin/', views.event_checkinreset, name='event_checkinreset'),
+    path(r'dashboard/<uuid:event_id>', views.get_event_participant, name='get_event_participant'),
+    path(r'dashboard/', views.list_my_event, name='list_my_event'),
+    path(r'dashboard/participant/', views.list_event_participant, name='list_event_participant'),
+    path(r'dashboard/participant/<uuid:participant_id>/edit', views.participant_edit, name='participant_edit'),
+    path(r'dashboard/participant/<uuid:participant_id>/print', views.print_participant_label, name='print_participant_label'),
     path(r'<uuid:event_id>', views.get_event, name='get_event'),
     path(r'api/participant/<uuid:participant_id>/print', views.print_participant_label_api,
         name='print_participant_label_api'),
@@ -33,5 +32,6 @@ urlpatterns = [
     path('community/<uuid:community_id>/', views.community_detail, name='community_detail'),
     path(r'logon', views.badgeprint_logon, name='badgeprint_logon'),
     path(r'logoff', views.badgeprint_logoff, name='badgeprint_logoff'),
-    path(r'', views.list_all_event, name='list_all_event'),
+    path(r'old/list_all_event', views.list_all_event, name='list_all_event'),
+    path("", views.UpcomingEventsListView.as_view(), name="upcoming"),
 ]

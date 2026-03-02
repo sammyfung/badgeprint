@@ -50,6 +50,9 @@ class Event(models.Model):
     def __str__(self):
         return self.name
 
+    #def link(self):
+    #    return reverse('list_all_event', kwargs={'id': self.id})
+
 
 class Printer(models.Model):
     LABEL_CHOICES = (

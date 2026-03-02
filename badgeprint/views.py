@@ -78,16 +78,17 @@ def json_list_my_event(request):
 
 def get_event(request, event_id):
     event = Event.objects.get(id=event_id)
+    return render(request, 'badgeprint/event.html', {'event': event})
+
+def get_event_participant(request, event_id):
+    event = Event.objects.get(id=event_id)
     if request.user.is_authenticated:
         # List all participants from requested event.
-        return render(request, 'badgeprint/participants.html', {'id': event_id,
+        return render(request, 'badgeprint/participants.html', {'event': event,
                                                                 'event_name': event.name,
                                                                 'event_id': event.id})
     else:
-        return render(request, 'badgeprint/event.html', {'id': event_id,
-                                                        'event_name': event.name,
-                                                        'event_id': event.id})
-
+        raise Http404("Authentication is required.")
 
 def json_event_participant(request, event_id):
     # return all events in json
@@ -608,7 +609,7 @@ def participant_edit(request, participant_id):
         return redirect('list_my_event')
     return render(request, 'badgeprint/participant_form.html', {'events': Event.objects.all()})
 
-def list_my_participant(request):
+def list_event_participant(request):
     if request.method == 'POST':
         return redirect('list_my_event')
     return render(request, 'badgeprint/participant_form.html', {'events': Event.objects.all()})

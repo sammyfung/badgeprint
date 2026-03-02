@@ -20,6 +20,11 @@ Event List
 {% endblock %}
 {% block content %}
   <div class="table-responsive">
-
+    <p>ID: {{ event.id }}</p>
+    <p>Event Code: {{ event.code}}</p>
+    <p>Event Name: {{ event.name}}</p>
+    <p>Event Description: {{ event.description}}</p>
+    <p>Start Time: {{ event.start_time}}</p>
+    <p>End Time: {{ event.end_time}}</p>
  </div>
 {% endblock %}
