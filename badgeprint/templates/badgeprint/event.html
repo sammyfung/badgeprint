@@ -1,30 +1,33 @@
-{% extends "badgeprint/base.html" %}
-{% load static %}
-{% block title %}
-Event List
-{% endblock %}
-{% block css %}
-<link rel="stylesheet" type="text/css" href="{% static 'datatables.min.css' %}"/>
-<link rel="stylesheet" type="text/css" href="{% static 'Select-1.2.2/css/select.dataTables.min.css' %}"/>
-{% endblock %}
-{% block js %}
-<script type="text/javascript" src="{% static 'datatables.min.js' %}"></script>
-<script type="text/javascript" src="{% static 'Select-1.2.2/js/dataTables.select.min.js' %}"></script>
-<script>
-</script>
-{% endblock %}
-{% block sidebar %}
-<ul class="nav nav-sidebar">
-  <li class="active"><a href="{% url 'list_my_event' %}">My Events</a></li>
-</ul>
-{% endblock %}
+{% extends "badgeprint/dev_base_new.html" %}
+
+{% block title %}{{ event.name }}{% endblock %}
+{% block page_title %}{{ event.community|default:'Event' }}{% endblock %}
+
 {% block content %}
-  <div class="table-responsive">
-    <p>ID: {{ event.id }}</p>
-    <p>Event Code: {{ event.code}}</p>
-    <p>Event Name: {{ event.name}}</p>
-    <p>Event Description: {{ event.description}}</p>
-    <p>Start Time: {{ event.start_time}}</p>
-    <p>End Time: {{ event.end_time}}</p>
- </div>
+    <article class="event-card">
+      <header>
+        <h3><a href="{% url 'get_event' event_id=event.id %}">{{ event.name }}</a></h3>
+        <small>
+          {{ event.start_time|date:"D, d M Y • H:i" }}
+          {% if event.end_time %}– {{ event.end_time|time:"H:i" }}{% endif %}
+        </small>
+      </header>
+      <p>{{ event.description }}</p>
+      {% if event.website_url %}
+      <p>Web Page: {{ event.website_url}}</p>
+      {% endif %}
+      {% if event.rsvp_url %}
+      <p>RSVP: {{ event.rsvp_url}}</p>
+      {% endif %}
+      <footer>
+        {% if event.is_online %}
+          <strong>Online</strong>
+        {% else %}
+          {{ event.venue_name|default:event.city }}
+        {% endif %}
+        {% if event.link %}
+          <a href="{{ event.link }}" target="_blank" rel="noopener">→ Details</a>
+        {% endif %}
+      </footer>
+    </article>
 {% endblock %}
