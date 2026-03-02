@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path("dev/", views.UpcomingEventsListView.as_view(), name="upcoming"),
     path(r'my/<uuid:event_id>/participant/', views.participant_create_view, name='participant_create_view'),
     path(r'my/<uuid:event_id>/reset-checkin/', views.event_checkinreset, name='event_checkinreset'),
     path(r'my/<uuid:event_id>', views.get_event, name='get_my_event'),

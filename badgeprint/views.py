@@ -612,3 +612,28 @@ def list_my_participant(request):
     if request.method == 'POST':
         return redirect('list_my_event')
     return render(request, 'badgeprint/participant_form.html', {'events': Event.objects.all()})
+
+# dev
+from django.views.generic import ListView
+from django.utils import timezone
+class UpcomingEventsListView(ListView):
+    model = Event
+    template_name = "badgeprint/dev_event_list.html"
+    context_object_name = "events"
+    paginate_by = 12
+
+    def get_queryset(self):
+        return Event.objects.filter(
+            start_time__gte=timezone.now()
+        ).select_related().order_by('start_time')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["page_title"] = "Upcoming Events"
+        context["today"] = timezone.now()
+        context["featured_events"] = Event.objects.filter(
+            #featured=True,
+            public=True,
+            start_time__gte=timezone.now()
+        ).order_by('start_time')[:3]
+        return context
