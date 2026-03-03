@@ -15,7 +15,7 @@ Participant List
 $(document).ready( function () {
     var table = $('#participant_list').DataTable( {
         "ajax": {
-            "url": '{% url 'json_event_participant' event_id=id %}',
+            "url": '{% url 'json_list_my_event' %}/{{ event_id }}',
             "dataType": 'json',
             "dataSrc": "data",
         },
@@ -184,7 +184,7 @@ function filterclear() {
     table.fnFilterClear();
 }
 setInterval(function(){
-$.getJSON( "{% url 'json_event_stats' event_id=id %}", function( data ) {
+$.getJSON( "{% url 'json_event_stats' event_id=event_id %}", function( data ) {
   $('#checkin_count').html(data.attended + " / " + data.total);
 });
 }, 5000);
