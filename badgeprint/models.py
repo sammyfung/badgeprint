@@ -8,7 +8,7 @@ from django.contrib.auth.models import User
 def user_directory_path(instance, filename):
     return 'user_{0}/{1}'.format(instance.owner.id, filename)
 
-class Community(models.Model):
+class BaseCommunity(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(verbose_name='Name', max_length=100)
     description = models.TextField(verbose_name='Description', blank=True)
@@ -24,10 +24,15 @@ class Community(models.Model):
         return self.name
 
     class Meta:
+        abstract = True
         verbose_name_plural = 'Communities'
         ordering = ['name']
 
-class Event(models.Model):
+
+class Community(BaseCommunity):
+    pass
+
+class BaseEvent(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     platform = models.CharField(verbose_name='Platform', max_length=30, default='badgeprint')
     code = models.CharField(verbose_name='Code', max_length=60, null=True, blank=True)
@@ -49,6 +54,13 @@ class Event(models.Model):
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        abstract = True
+
+
+class Event(BaseEvent):
+    pass
 
     #def link(self):
     #    return reverse('list_all_event', kwargs={'id': self.id})
@@ -90,7 +102,7 @@ class UserPrinter(models.Model):
     event = models.ForeignKey(Event, verbose_name='Event', null=True, blank=True, on_delete=models.SET_NULL)
 
 
-class Participant(models.Model):
+class BaseParticipant(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     event = models.ForeignKey(Event, verbose_name='Event', on_delete=models.CASCADE)
     user = models.ForeignKey(User, verbose_name='User', null=True, blank=True, on_delete=models.SET_NULL)
@@ -110,8 +122,15 @@ class Participant(models.Model):
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
+    class Meta:
+        abstract = True
 
-class Service(models.Model):
+
+class Participant(BaseParticipant):
+    pass
+
+
+class BaseService(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(verbose_name='Title', max_length=100)
     user = models.ForeignKey(User, verbose_name='User', null=True, blank=True, on_delete=models.SET_NULL)
@@ -119,3 +138,10 @@ class Service(models.Model):
     metadata = models.JSONField(verbose_name='Metadata', null=True, blank=True)
     create_time = models.DateTimeField(verbose_name='Create Time', auto_now_add=True)
     update_time = models.DateTimeField(verbose_name='Update Time', auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
+class Service(BaseService):
+    pass
