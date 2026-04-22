@@ -46,7 +46,6 @@ class BaseEvent(models.Model):
     public = models.BooleanField(verbose_name='Public', default=False)
     logo = models.ImageField(upload_to=user_directory_path, verbose_name="Logo", null=True, blank=True)
     owner = models.ForeignKey(User, verbose_name='Event Owner', null=True, blank=True, on_delete=models.SET_NULL)
-    community = models.ForeignKey(Community, verbose_name='Community', null=True, blank=True, on_delete=models.SET_NULL)
     label_tpl = models.CharField(verbose_name='Label Template', max_length=60, null=True, blank=True)
     create_time = models.DateTimeField(verbose_name='Create Time', auto_now_add=True)
     update_time = models.DateTimeField(verbose_name='Update Time', auto_now=True)
@@ -60,7 +59,7 @@ class BaseEvent(models.Model):
 
 
 class Event(BaseEvent):
-    pass
+    community = models.ForeignKey(Community, verbose_name='Community', null=True, blank=True, on_delete=models.SET_NULL)
 
     #def link(self):
     #    return reverse('list_all_event', kwargs={'id': self.id})
@@ -104,7 +103,6 @@ class UserPrinter(models.Model):
 
 class BaseParticipant(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    event = models.ForeignKey(Event, verbose_name='Event', on_delete=models.CASCADE)
     user = models.ForeignKey(User, verbose_name='User', null=True, blank=True, on_delete=models.SET_NULL)
     code = models.CharField(verbose_name='Code', max_length=100, null=True, blank=True)
     first_name = models.CharField(verbose_name='First Name', max_length=60)
@@ -127,7 +125,7 @@ class BaseParticipant(models.Model):
 
 
 class Participant(BaseParticipant):
-    pass
+    event = models.ForeignKey(Event, verbose_name='Event', on_delete=models.CASCADE)
 
 
 class BaseService(models.Model):
