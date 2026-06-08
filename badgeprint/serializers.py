@@ -4,7 +4,7 @@ from .models import Participant, Printer
 class PrinterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Printer
-        fields = ['id', 'location', 'uri', 'label', 'debug']
+        fields = ['id', 'location', 'uri', 'label', 'debug', 'printall']
 
 class ParticipantSerializer(serializers.ModelSerializer):
     class Meta:

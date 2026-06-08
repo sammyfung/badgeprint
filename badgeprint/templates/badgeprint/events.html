@@ -1,72 +1,79 @@
 {% extends "badgeprint/base.html" %}
 {% load static %}
-{% block title %}
-Event List
+{% block title %}My Events{% endblock %}
+
+{% block sidebar %}
+<span class="sidebar-section">Events</span>
+<a href="{% url 'list_my_event' %}" class="sidebar-link active">
+  <i class="bi bi-calendar-check"></i> My Events
+</a>
+{% if perms.badgeprint.add_event %}
+<a href="{% url 'add_event' %}" class="sidebar-link">
+  <i class="bi bi-calendar-plus"></i> Add Event
+</a>
+{% endif %}
 {% endblock %}
-{% block css %}
-<link rel="stylesheet" type="text/css" href="{% static 'datatables.min.css' %}"/>
-<link rel="stylesheet" type="text/css" href="{% static 'Select-1.2.2/css/select.dataTables.min.css' %}"/>
+
+{% block content %}
+<div class="d-flex align-items-start justify-content-between mb-4 flex-wrap gap-2">
+  <div>
+    <h4 class="fw-bold mb-0">My Events</h4>
+    <p class="text-muted small mb-0">Manage your events and participants</p>
+  </div>
+  {% if perms.badgeprint.add_event %}
+  <a href="{% url 'add_event' %}" class="btn btn-primary">
+    <i class="bi bi-plus-lg me-1"></i>Add Event
+  </a>
+  {% endif %}
+</div>
+
+<div class="card border-0 shadow-sm rounded-3">
+  <div class="card-body p-4">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle w-100" id="event_list">
+        <thead class="table-light">
+          <tr>
+            <th>Event Name</th>
+            <th>Date &amp; Time</th>
+          </tr>
+        </thead>
+      </table>
+    </div>
+  </div>
+</div>
 {% endblock %}
+
 {% block js %}
-<script type="text/javascript" src="{% static 'datatables.min.js' %}"></script>
-<script type="text/javascript" src="{% static 'Select-1.2.2/js/dataTables.select.min.js' %}"></script>
 <script>
 function formatDate(dateString) {
-    const date = new Date(dateString);
-    const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Months are 0-based
-    const day = String(date.getUTCDate()).padStart(2, '0');
-    const hours = String(date.getUTCHours()).padStart(2, '0');
-    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}`;
-}
-$(document).ready( function () {
-    var table = $('#event_list').DataTable( {
-        "ajax": {
-            "url": '{% url json_api %}',
-            "dataType": 'json',
-            "dataSrc": "data",
-        },
-        "columns": [
-            { 'data': 'name' },
-            { data: null,
-                    render: function(data, type, row) {
-                          return formatDate(row['start_time']);
-                      },
-            }
-        ],
-        "columnDefs": [
-            {
-                "render": function ( data, type, row ) {
-                    return '<a href="{% url 'list_my_event' %}' + row['id'] + '">' + data + '</a>';
-                },
-                "targets": 0
-            },
-        ],
-        //dom: "Bfrtip",
-        "select": false,
-        "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]]
+    const d = new Date(dateString);
+    return d.toLocaleString('en-GB', {
+        year: 'numeric', month: 'short', day: '2-digit',
+        hour: '2-digit', minute: '2-digit'
     });
-    setInterval( function () {
-        table.ajax.reload(null, false);
-    }, 5000 );
+}
+$(document).ready(function () {
+    $('#event_list').DataTable({
+        ajax: {
+            url: '{% url json_api %}',
+            dataType: 'json',
+            dataSrc: 'data'
+        },
+        columns: [
+            { data: 'name' },
+            { data: null, render: function(d, t, r) { return formatDate(r.start_time); } }
+        ],
+        columnDefs: [{
+            targets: 0,
+            render: function(data, type, row) {
+                return `<a href="{% url 'list_my_event' %}${row.id}" class="fw-semibold text-decoration-none">${data}</a>`;
+            }
+        }],
+        language: { emptyTable: 'No events yet. Create your first event!' },
+        select: false,
+        order: [[1, 'desc']],
+        lengthMenu: [[10, 25, 50, -1], [10, 25, 50, 'All']]
+    });
 });
 </script>
-{% endblock %}
-{% block sidebar %}
-<ul class="nav nav-sidebar">
-  <li class="active"><a href="{% url 'list_my_event' %}">My Events</a></li>
-</ul>
-{% endblock %}
-{% block content %}
-  <div class="table-responsive">
-    <table class="table table-striped" id="event_list">
-      <thead>
-        <tr>
-          <th>Event Name</th>
-          <th>Event Time</th>
-        </tr>
-      </thead>
-    </table>
- </div>
 {% endblock %}

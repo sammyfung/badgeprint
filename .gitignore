@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets / environment
+.env
+.env.*
+secrets.py
+local_settings.py
+
+# Django
+*.sqlite3
+*.log
+staticfiles/
+
+# Migrations (run makemigrations after cloning)
+*/migrations/0*.py
+
+# Media / generated label files
+media/
+badgeprint/labels/
+*.raster
+*.png.tmp
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Test / coverage
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+coverage.xml
+
+# mypy / type checkers
+.mypy_cache/
+.dmypy.json

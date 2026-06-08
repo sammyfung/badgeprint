@@ -1,88 +1,209 @@
 {% extends "badgeprint/base.html" %}
 {% load static %}
-{% block title %}
-{% if participant %}Edit Participant{% else %}Add Participant{% endif %}
-{% endblock %}
-{% block css %}
-{% endblock %}
-{% block js %}
-{% endblock %}
+{% block title %}{% if participant %}Edit Participant{% else %}Add Participant{% endif %}{% endblock %}
+
 {% block sidebar %}
-<ul class="nav nav-sidebar">
-  <li class="active"><a href="{% url 'list_all_event' %}">All Events</a></li>
-</ul>
+<span class="sidebar-section">Events</span>
+<a href="{% url 'list_my_event' %}" class="sidebar-link">
+  <i class="bi bi-calendar-check"></i> My Events
+</a>
+{% if event_id %}
+<a href="{% url 'get_my_event' event_id=event_id %}" class="sidebar-link">
+  <i class="bi bi-people"></i> Participants
+</a>
+{% endif %}
+<a href="#" class="sidebar-link active">
+  <i class="bi bi-person-plus"></i> {% if participant %}Edit{% else %}Add{% endif %} Participant
+</a>
 {% endblock %}
+
 {% block content %}
-        <h1>{% if participant %}Edit Participant{% else %}Add Participant{% endif %}</h1>
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
-        {% if errors %}
-            <div class="alert alert-danger">
-                <ul>
-                    {% for field, error_list in errors.items %}
-                        {% for error in error_list %}
-                            <li>{{ field }}: {{ error }}</li>
-                        {% endfor %}
-                    {% endfor %}
-                </ul>
-            </div>
-        {% endif %}
-        <form method="post">
-            {% csrf_token %}
-            <div class="mb-3">
-                <label for="event" class="form-label">Event</label>
-                <select class="form-select" id="event" name="event" required>
-                    {% for event in events %}
-                        <option value="{{ event.id }}" {% if participant.event.id == event.id %}selected{% endif %}>{{ event }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="mb-3">
-                <label for="first_name" class="form-label">First Name</label>
-                <input type="text" class="form-control" id="first_name" name="first_name" value="{{ participant.first_name|default:'' }}" required>
-            </div>
-            <div class="mb-3">
-                <label for="last_name" class="form-label">Last Name</label>
-                <input type="text" class="form-control" id="last_name" name="last_name" value="{{ participant.last_name|default:'' }}">
-            </div>
-            <div class="mb-3">
-                <label for="email" class="form-label">Email</label>
-                <input type="email" class="form-control" id="email" name="email" value="{{ participant.email|default:'' }}">
-            </div>
-            <div class="mb-3">
-                <label for="company" class="form-label">Company</label>
-                <input type="text" class="form-control" id="company" name="company" value="{{ participant.company|default:'' }}">
-            </div>
-            <div class="mb-3">
-                <label for="phone" class="form-label">Phone</label>
-                <input type="text" class="form-control" id="phone" name="phone" value="{{ participant.phone|default:'' }}">
-            </div>
-            <div class="mb-3">
-                <label for="status" class="form-label">Status</label>
-                <select class="form-select" id="status" name="status">
-                    <option value="Attending" {% if participant.status == 'Attending' %}selected{% endif %}>Attending</option>
-                    <option value="Attended" {% if participant.status == 'Attended' %}selected{% endif %}>Attended</option>
-                </select>
-            </div>
-            <div class="mb-3">
-                <label for="ticket_type" class="form-label">Ticket Type</label>
-                <input type="text" class="form-control" id="ticket_type" name="ticket_type" value="{{ participant.ticket_type|default:'' }}">
-            </div>
-            <div class="mb-3">
-                <label for="code" class="form-label">Code</label>
-                <input type="text" class="form-control" id="code" name="code" value="{{ participant.code|default:'' }}">
-            </div>
-            <div class="mb-3">
-                <label for="other" class="form-label">Other Information</label>
-                <textarea class="form-control" id="other" name="other">{{ participant.other|default:'' }}</textarea>
-            </div>
-            <button type="submit" class="btn btn-primary">Save</button>
-            <a href="{% url 'list_my_event' %}" class="btn btn-secondary">Cancel</a>
-        </form>
+<div class="d-flex align-items-start justify-content-between mb-4 flex-wrap gap-2">
+  <div>
+    <h4 class="fw-bold mb-0">
+      {% if participant %}Edit Participant{% else %}Add Participant{% endif %}
+    </h4>
+    {% if event %}
+    <p class="text-muted small mb-0">
+      <i class="bi bi-calendar-event me-1"></i>Event: <strong>{{ event.name }}</strong>
+    </p>
+    {% endif %}
+  </div>
+  {% if event_id %}
+  <a href="{% url 'get_my_event' event_id=event_id %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back to participants
+  </a>
+  {% endif %}
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  {% endfor %}
+{% endif %}
+
+{% if errors %}
+  <div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <strong><i class="bi bi-exclamation-triangle me-2"></i>Please fix the following errors:</strong>
+    <ul class="mb-0 mt-1">
+      {% for field, error_list in errors.items %}
+        {% for error in error_list %}
+          <li>{{ field }}: {{ error }}</li>
+        {% endfor %}
+      {% endfor %}
+    </ul>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="status" value="{% if participant %}{{ participant.status }}{% else %}Attending{% endif %}">
+
+  <!-- Name -->
+  <div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
+      <h6 class="fw-semibold mb-0 text-muted text-uppercase" style="font-size:.7rem; letter-spacing:.07rem;">
+        <i class="bi bi-person me-2"></i>Participant Name
+      </h6>
+    </div>
+    <div class="card-body px-4 pb-4">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label for="first_name" class="form-label fw-semibold">
+            First Name <span class="text-danger">*</span>
+          </label>
+          <input type="text" class="form-control {% if errors.first_name %}is-invalid{% endif %}"
+                 id="first_name" name="first_name"
+                 value="{{ participant.first_name|default:'' }}" required autofocus>
+          {% if errors.first_name %}
+            <div class="invalid-feedback">{{ errors.first_name.0 }}</div>
+          {% endif %}
+        </div>
+        <div class="col-md-6">
+          <label for="last_name" class="form-label fw-semibold">Last Name</label>
+          <input type="text" class="form-control {% if errors.last_name %}is-invalid{% endif %}"
+                 id="last_name" name="last_name"
+                 value="{{ participant.last_name|default:'' }}">
+          {% if errors.last_name %}
+            <div class="invalid-feedback">{{ errors.last_name.0 }}</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contact -->
+  <div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
+      <h6 class="fw-semibold mb-0 text-muted text-uppercase" style="font-size:.7rem; letter-spacing:.07rem;">
+        <i class="bi bi-building me-2"></i>Contact &amp; Organisation
+      </h6>
+    </div>
+    <div class="card-body px-4 pb-4">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label for="company" class="form-label fw-semibold">Company / Organisation</label>
+          <input type="text" class="form-control {% if errors.company %}is-invalid{% endif %}"
+                 id="company" name="company"
+                 value="{{ participant.company|default:'' }}">
+          {% if errors.company %}
+            <div class="invalid-feedback">{{ errors.company.0 }}</div>
+          {% endif %}
+        </div>
+        <div class="col-md-6">
+          <label for="email" class="form-label fw-semibold">Email</label>
+          <div class="input-group">
+            <span class="input-group-text bg-light border-end-0 text-muted">
+              <i class="bi bi-envelope"></i>
+            </span>
+            <input type="email" class="form-control border-start-0 ps-0 {% if errors.email %}is-invalid{% endif %}"
+                   id="email" name="email"
+                   value="{{ participant.email|default:'' }}">
+            {% if errors.email %}
+              <div class="invalid-feedback">{{ errors.email.0 }}</div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label for="phone" class="form-label fw-semibold">Phone</label>
+          <div class="input-group">
+            <span class="input-group-text bg-light border-end-0 text-muted">
+              <i class="bi bi-telephone"></i>
+            </span>
+            <input type="text" class="form-control border-start-0 ps-0 {% if errors.phone %}is-invalid{% endif %}"
+                   id="phone" name="phone"
+                   value="{{ participant.phone|default:'' }}">
+            {% if errors.phone %}
+              <div class="invalid-feedback">{{ errors.phone.0 }}</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ticket -->
+  <div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
+      <h6 class="fw-semibold mb-0 text-muted text-uppercase" style="font-size:.7rem; letter-spacing:.07rem;">
+        <i class="bi bi-ticket-perforated me-2"></i>Ticket Details
+      </h6>
+    </div>
+    <div class="card-body px-4 pb-4">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label for="ticket_type" class="form-label fw-semibold">Ticket Type</label>
+          <input type="text" class="form-control {% if errors.ticket_type %}is-invalid{% endif %}"
+                 id="ticket_type" name="ticket_type"
+                 value="{{ participant.ticket_type|default:'' }}"
+                 placeholder="e.g. General, VIP, Speaker">
+          {% if errors.ticket_type %}
+            <div class="invalid-feedback">{{ errors.ticket_type.0 }}</div>
+          {% endif %}
+        </div>
+        <div class="col-md-6">
+          <label for="code" class="form-label fw-semibold">Ticket / Badge Code</label>
+          <input type="text" class="form-control {% if errors.code %}is-invalid{% endif %}"
+                 id="code" name="code"
+                 value="{{ participant.code|default:'' }}"
+                 placeholder="Leave blank to auto-generate">
+          {% if errors.code %}
+            <div class="invalid-feedback">{{ errors.code.0 }}</div>
+          {% endif %}
+          <div class="form-text">Used for QR code check-in and badge printing.</div>
+        </div>
+        <div class="col-12">
+          <label for="other" class="form-label fw-semibold">Additional Notes</label>
+          <textarea class="form-control {% if errors.other %}is-invalid{% endif %}"
+                    id="other" name="other" rows="3"
+                    placeholder="Any special requirements or notes…">{{ participant.other|default:'' }}</textarea>
+          {% if errors.other %}
+            <div class="invalid-feedback">{{ errors.other.0 }}</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legend + Actions -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <p class="text-muted small mb-0"><span class="text-danger">*</span> Required field</p>
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary px-4">
+        <i class="bi bi-person-check me-1"></i>
+        {% if participant %}Save Changes{% else %}Add Participant{% endif %}
+      </button>
+      {% if event_id %}
+      <a href="{% url 'get_my_event' event_id=event_id %}" class="btn btn-outline-secondary px-4">Cancel</a>
+      {% else %}
+      <a href="{% url 'list_my_event' %}" class="btn btn-outline-secondary px-4">Cancel</a>
+      {% endif %}
+    </div>
+  </div>
+
+</form>
 {% endblock %}

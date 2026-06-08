@@ -1,0 +1,101 @@
+{% extends "badgeprint/base.html" %}
+{% load static %}
+{% block title %}RSVP — {{ event.name }}{% endblock %}
+
+{% block sidebar %}
+<span class="sidebar-section">Browse</span>
+<a href="{% url 'list_all_event' %}" class="sidebar-link">
+  <i class="bi bi-calendar-event"></i> Public Events
+</a>
+<a href="{% url 'get_event' event_id=event.id %}" class="sidebar-link">
+  <i class="bi bi-info-circle"></i> Event Info
+</a>
+{% if user.is_authenticated %}
+<span class="sidebar-section">My Events</span>
+<a href="{% url 'list_my_event' %}" class="sidebar-link">
+  <i class="bi bi-calendar-check"></i> My Events
+</a>
+{% else %}
+<span class="sidebar-section">Account</span>
+<a href="{% url 'badgeprint_logon' %}" class="sidebar-link">
+  <i class="bi bi-box-arrow-in-right"></i> Login
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <h4 class="fw-bold mb-0">RSVP</h4>
+  <p class="text-muted small mb-0">{{ event.name }}</p>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  {% endfor %}
+{% endif %}
+
+<div class="card border-0 shadow-sm rounded-3" style="max-width:560px;">
+  <div class="card-body p-4">
+
+    {% if not user.is_authenticated %}
+    <div class="alert alert-info py-2 small mb-3">
+      <i class="bi bi-info-circle me-1"></i>
+      <a href="{% url 'badgeprint_logon' %}">Log in</a> to pre-fill your details.
+    </div>
+    {% endif %}
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="row g-3">
+        <div class="col-sm-6">
+          <label for="{{ form.first_name.id_for_label }}" class="form-label fw-semibold">
+            First Name <span class="text-danger">*</span>
+          </label>
+          {{ form.first_name }}
+          {% if form.first_name.errors %}<div class="text-danger small mt-1">{{ form.first_name.errors }}</div>{% endif %}
+        </div>
+        <div class="col-sm-6">
+          <label for="{{ form.last_name.id_for_label }}" class="form-label fw-semibold">Last Name</label>
+          {{ form.last_name }}
+          {% if form.last_name.errors %}<div class="text-danger small mt-1">{{ form.last_name.errors }}</div>{% endif %}
+        </div>
+        <div class="col-12">
+          <label for="{{ form.email.id_for_label }}" class="form-label fw-semibold">Email</label>
+          {{ form.email }}
+          {% if form.email.errors %}<div class="text-danger small mt-1">{{ form.email.errors }}</div>{% endif %}
+        </div>
+        <div class="col-sm-6">
+          <label for="{{ form.phone.id_for_label }}" class="form-label fw-semibold">Phone</label>
+          {{ form.phone }}
+          {% if form.phone.errors %}<div class="text-danger small mt-1">{{ form.phone.errors }}</div>{% endif %}
+        </div>
+        <div class="col-sm-6">
+          <label for="{{ form.company.id_for_label }}" class="form-label fw-semibold">Company</label>
+          {{ form.company }}
+          {% if form.company.errors %}<div class="text-danger small mt-1">{{ form.company.errors }}</div>{% endif %}
+        </div>
+
+      </div>
+
+      <div class="d-flex gap-2 mt-4">
+        <button type="submit" class="btn btn-primary px-4">
+          <i class="bi bi-ticket-perforated me-1"></i>Submit RSVP
+        </button>
+        <a href="{% url 'get_event' event_id=event.id %}" class="btn btn-outline-secondary px-4">
+          Cancel
+        </a>
+      </div>
+    </form>
+
+  </div>
+</div>
+{% endblock %}

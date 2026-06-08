@@ -1,54 +1,60 @@
 {% load static %}
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta http-equiv="content-type" content="text/html; charset=utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}{% endblock %} | badgeprint</title>
-  <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
-  <link href="{% static 'css/bootstrap-theme.min.css' %}" rel="stylesheet">
-  <link href="{% static 'css/dashboard.css' %}" rel="stylesheet">`
-  {% block css %}
-  {% endblock %}
+  <title>{% block title %}{% endblock %} | BadgePrint</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body { background: #f8fafc; min-height: 100vh; }
+    .topnav {
+      background: #0f172a;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
+    }
+    .topnav .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.05rem;
+      text-decoration: none;
+    }
+    .topnav .brand:hover { color: #e0e7ff; }
+    .topnav .brand i { color: #818cf8; font-size: 1.4rem; }
+  </style>
+  {% block css %}{% endblock %}
 </head>
-<body style="width: 100%; margin-left: auto; margin-right: auto;">
-  <nav class="navbar navbar-inverse navbar-fixed-top">
-    <div class="container-fluid">
-      <div class="navbar-header">
-        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
-          <span class="sr-only">Toggle navigation</span>
-          <span class="icon-bar"></span>
-          <span class="icon-bar"></span>
-          <span class="icon-bar"></span>
-        </button>
-        <a class="navbar-brand" href="{% url 'list_all_event' %}">badgeprint</a>
-      </div>
-      <div id="navbar" class="navbar-collapse collapse">
-        <ul class="nav navbar-nav navbar-right">
-        {% if user.is_authenticated %}
-          {% if user.is_super_user %}
-          <li><a href="/admin" target="_blank">Django Admin</a></li>
-          {% endif %}
-          <li><a href="/badgeprint/logoff">Logout</a></li>
-        {% else %}
-          <li><a href="{% url 'badgeprint_logon' %}">Login</a></li>
-        {% endif %}
-        </ul>
-      </div>
+<body>
+  <nav class="topnav">
+    <a href="{% url 'list_all_event' %}" class="brand">
+      <i class="bi bi-badge-cc-fill"></i>
+      <span>BadgePrint</span>
+    </a>
+    <div class="ms-auto d-flex gap-2">
+      {% if user.is_authenticated %}
+        <a href="{% url 'badgeprint_logoff' %}" class="btn btn-sm btn-outline-light">
+          <i class="bi bi-box-arrow-right me-1"></i>Logout
+        </a>
+      {% else %}
+        <a href="{% url 'badgeprint_logon' %}" class="btn btn-sm btn-light">
+          <i class="bi bi-box-arrow-in-right me-1"></i>Login
+        </a>
+      {% endif %}
     </div>
   </nav>
-  <div class="container-fluid">
-    <div class="row">
-      <div class="col-md-12 col-md-offset-4 main">
-        {% block content %}
-        {% endblock %}
-      </div>
-    </div>
+
+  <div class="container py-4">
+    {% block content %}{% endblock %}
   </div>
-  <script src="{% static 'js/jquery-3.2.1.min.js' %} "></script>
-  <script src="{% static 'js/bootstrap.min.js' %}"></script>
-{% block js %}
-{% endblock %}
+
+  <script src="{% static 'js/jquery-3.2.1.min.js' %}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  {% block js %}{% endblock %}
 </body>
 </html>

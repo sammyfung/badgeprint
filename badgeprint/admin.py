@@ -26,7 +26,8 @@ class ParticipantAdmin(admin.ModelAdmin):
     search_fields = ['first_name', 'last_name', 'company', 'phone', 'email']
 
 class ServiceAdmin(admin.ModelAdmin):
-    list_display = ('id', 'title', 'description', 'user', 'create_time')
+    list_display = ('description', 'title', 'create_time')
+    ordering = ('-create_time',)
 
 admin.site.register(Community, CommunityAdmin)
 admin.site.register(Event, EventAdmin)

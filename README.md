@@ -1,26 +1,36 @@
-# badgeprint - Badge label print on Brother QL printers
+# badgeprint - Event management & badge label printing
 
-badgeprint is a django app project to check in and print badge labels to Brother QL printers for conferences and events. It is also a simple event management solution.
+badgeprint is a django app project to check-in and print badge labels to Brother QL printers for conferences and events, now it also provides event management.
 
 ## Features
 
-* supports Brother QL-720-NW label printer for label print (badge print), and 2 Brother label tapes - DK-11202 and DK-11209.
-* prints participant name, company name. For DK-11202, it also prints event/organiser logo and other information,  etc.
-* supports multiple events, multiple printers, multiple users.
-* check-in thru web UI, supports search by name, phone number, email, etc.
-* check-in thru API, tested to use QR code scanner (iOS/Android) to call URL, simple & fast 'scan & print' at conference check-in.
-* support management thru Django web admin UI.
-* an example script to import participant details from CSV file (eg. CSV file 
-export from eventbrite.com) to badge print in Django.
-* and some minor features.
+* Label Print: print labels for participants to stick to badge card or clothes directly. 
+  * A label includes first name, last name, company/organisation name.
+  * For large label, it also includes event logo and event name.
+  * Tested with Brother QL-720NW and support DK-11202 and DK-11209 label tapes.
+  * DK-11202 (62x100mm) can be sticked on clothes directly without additional badge card.
+  * DK-11209 (29x62mm) can be sticked to badge card.
+* Check-in with QR code, admin UI, or API.
+  * QR code can be scanned by camara (Web based QR scanner)
+  * Barcode Scanner (checkin_usb_scanner / checkin_scanner): Tested with Honeywell Genesis 7580g USB scanner.
+  * badgeprint admin UI: event participant list check-in button with search feature.
+  * badgeprint API: use Android / iOS QR code scanners to call badgeprint check-in URL.
+* Django admin can access & modify badgeprint data.
+* Import from CSV: import participant list from CSV, RSVP can be done by 3rd party registration services or web forms.
+* Import/Export Brother raster files, it speeds up "scan to print" by just sending raster file to Printer when particiapnt checkin.
+* Public event list with RSVP (built-in or 3rd party registration / e-form).
 
 ## System Requirement
 
 * Linux / OSX
-* Python 3 and Django 4.2
+* Python and Django  
 * fontconfig
   * OSX: brew install fontconfig
-* a supported Brother QL printer connected through network (Wifi/Ethernet)
+* Optional:
+  * Brother QL printer with Wifi / Ethernet and supported by open source community python library for Brother QL printers. Tested QL-720NW.
+  * Honeywell Genesis 7580g USB scanner.
+  * WebCam.
+  * Let us know if you tested with other devices.
 
 ## Redirect root URL (/) to badgeprint at Django
 

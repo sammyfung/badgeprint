@@ -1,218 +1,539 @@
 {% extends "badgeprint/base.html" %}
 {% load static %}
-{% block title %}
-Participant List
+{% block title %}Participant List{% endblock %}
+
+{% block sidebar %}
+<span class="sidebar-section">Events</span>
+<a href="{% url 'list_my_event' %}" class="sidebar-link">
+  <i class="bi bi-calendar-check"></i> My Events
+</a>
+<a href="{% url 'edit_event' event_id=event_id %}" class="sidebar-link">
+  <i class="bi bi-pencil-square"></i> Edit Event
+</a>
+<a href="#" class="sidebar-link active">
+  <i class="bi bi-people"></i> Participants
+</a>
+<span class="sidebar-section">Actions</span>
+<a href="{% url 'import_participants_upload' event_id=event_id %}" class="sidebar-link">
+  <i class="bi bi-filetype-csv"></i> Import CSV
+</a>
+<a href="javascript:void(0)" id="btnRegenAll" class="sidebar-link">
+  <i class="bi bi-arrow-clockwise"></i> Regenerate All
+</a>
+<a href="{% url 'download_raster_zip' event_id=event_id %}" class="sidebar-link">
+  <i class="bi bi-download"></i> Download Rasters
+</a>
+<a href="javascript:void(0)" id="btnImportRaster" class="sidebar-link">
+  <i class="bi bi-upload"></i> Import Rasters
+</a>
+<span class="sidebar-section">Manage</span>
+<a href="{% url 'duplicate_event' event_id=event_id %}" class="sidebar-link">
+  <i class="bi bi-copy"></i> Duplicate Event
+</a>
 {% endblock %}
-{% block css %}
-<link rel="stylesheet" type="text/css" href="{% static 'datatables.min.css' %}"/>
-<link rel="stylesheet" type="text/css" href="{% static 'Select-1.2.2/css/select.dataTables.min.css' %}"/>
+
+{% block content %}
+
+<!-- Header -->
+<div class="d-flex align-items-start justify-content-between mb-4 flex-wrap gap-2">
+  <div>
+    <h4 class="fw-bold mb-0">{{ event_name }}</h4>
+    <p class="text-muted small mb-0">
+      <i class="bi bi-people me-1"></i>
+      Checked in: <strong id="checkin_count">? / ?</strong>
+    </p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{% url 'participant_create_view' event_id=event_id %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-person-plus me-1"></i>Add
+    </a>
+  </div>
+</div>
+
+<!-- Regenerate-all progress / result (hidden until triggered) -->
+<div id="regenProgress" class="d-none mb-3">
+  <div class="d-flex align-items-center gap-2 mb-1">
+    <span class="small fw-semibold" id="regenProgressLabel">Regenerating…</span>
+    <span class="ms-auto text-muted small" id="regenProgressPct">0%</span>
+  </div>
+  <div class="progress mb-2" style="height:6px;">
+    <div id="regenProgressBar" class="progress-bar bg-primary progress-bar-striped progress-bar-animated"
+         role="progressbar" style="width:0%"></div>
+  </div>
+  <!-- Error details (shown only when there are failures) -->
+  <div id="regenErrors" class="d-none">
+    <details>
+      <summary class="text-warning small fw-semibold" style="cursor:pointer;">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        <span id="regenErrorCount"></span> failed — click to see details
+      </summary>
+      <div class="mt-2 rounded border border-warning-subtle bg-warning-subtle p-3"
+           style="max-height:200px;overflow-y:auto;">
+        <table class="table table-sm mb-0" style="font-size:.8rem;">
+          <thead><tr><th>Participant</th><th>Error</th></tr></thead>
+          <tbody id="regenErrorBody"></tbody>
+        </table>
+      </div>
+    </details>
+  </div>
+</div>
+
+<!-- Import Raster ZIP modal -->
+<div class="modal fade" id="importRasterModal" tabindex="-1" aria-labelledby="importRasterModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-semibold" id="importRasterModalLabel">
+          <i class="bi bi-upload me-2 text-primary"></i>Import Raster Files
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="importRasterForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-body pt-3">
+          <p class="text-muted small">Upload a ZIP file containing <code>.raster</code> files to import.</p>
+          <input type="file" class="form-control" id="rasterZipInput" name="raster_zip" accept=".zip" required>
+          <div id="importRasterResult" class="mt-3"></div>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="importRasterSubmit">
+            <i class="bi bi-upload me-1"></i>Import
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- QR code modal -->
+<div class="modal fade" id="qrModal" tabindex="-1" aria-labelledby="qrModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:320px;">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-semibold" id="qrModalLabel">
+          <i class="bi bi-qr-code me-2 text-primary"></i>QR Code
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center py-3">
+        <p class="text-muted small mb-2" id="qrModalName"></p>
+        <div id="qrcode" class="d-inline-block p-2 bg-white border rounded"></div>
+        <p class="font-monospace text-muted mt-2 mb-0" id="qrModalCode" style="font-size:.75rem;word-break:break-all;"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Label preview modal -->
+<div class="modal fade" id="labelPreviewModal" tabindex="-1" aria-labelledby="labelPreviewModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-semibold" id="labelPreviewModalLabel">
+          <i class="bi bi-badge-cc me-2 text-primary"></i>Label Preview
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center py-4">
+        <div id="labelPreviewSpinner" class="text-muted">
+          <div class="spinner-border spinner-border-sm me-2"></div>Loading…
+        </div>
+        <img id="labelPreviewImg" src="" alt="Label preview"
+             class="img-fluid rounded d-none border"
+             style="max-height:400px; background:#f8f9fa;">
+        <p id="labelPreviewEmpty" class="text-muted d-none">
+          No label image found for this participant. Regenerate first.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Participant table -->
+<div class="card border-0 shadow-sm rounded-3">
+  <div class="card-body p-4">
+
+    <!-- Search + filter bar -->
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+      <div class="input-group" style="max-width:360px;">
+        <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+        <input type="text" id="participantSearch" class="form-control border-start-0 ps-0"
+               placeholder="Search name, company, email, phone, code…"
+               autocomplete="off" spellcheck="false">
+        <button class="btn btn-outline-secondary border-start-0" type="button" id="clearSearch" title="Clear">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <div class="btn-group btn-group-sm" role="group">
+        <button type="button" id="filterAll"       class="btn btn-outline-secondary active" data-status="">All</button>
+        <button type="button" id="filterAttending" class="btn btn-outline-secondary" data-status="Attending">
+          <span class="badge-attending rounded-pill px-2" style="font-size:.75rem;">Attending</span>
+        </button>
+        <button type="button" id="filterAttended"  class="btn btn-outline-secondary" data-status="Attended">
+          <span class="badge-attended rounded-pill px-2" style="font-size:.75rem;">Attended</span>
+        </button>
+      </div>
+      <span id="searchChip" class="d-none badge rounded-pill d-inline-flex align-items-center gap-1"
+            style="background:#6366f1;color:#fff;font-size:.78rem;padding:.35em .75em;">
+        <i class="bi bi-funnel-fill"></i>
+        <span class="chip-text"></span>
+        <button type="button" class="chip-remove btn-close btn-close-white ms-1" style="font-size:.6rem;" aria-label="Clear filter"></button>
+      </span>
+      <span class="text-muted small ms-auto"><span id="resultCount">—</span> participants</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle w-100" id="participant_list">
+        <thead class="table-light">
+          <tr>
+            <th>Name &amp; Code</th>
+            <th>Company</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th>Ticket Type</th>
+            <th>Status</th>
+            <th class="text-end">Action</th>
+          </tr>
+        </thead>
+      </table>
+    </div>
+
+  </div>
+</div>
+
 {% endblock %}
+
 {% block js %}
-<script type="text/javascript" src="{% static 'datatables.min.js' %}"></script>
-<script type="text/javascript" src="{% static 'Select-1.2.2/js/dataTables.select.min.js' %}"></script>
-<script type="text/javascript" src="{% static 'fnFilterClear.js' %}"></script>
 <script>
-$(document).ready( function () {
-    var table = $('#participant_list').DataTable( {
-        "ajax": {
-            "url": '{% url 'json_event_participant' event_id=id %}',
-            "dataType": 'json',
-            "dataSrc": "data",
+const EVENT_ID   = '{{ event_id }}';
+const REGEN_ALL_URL      = '{% url "regenerate_all_labels" event_id=event_id %}';
+const IMPORT_RASTER_URL  = '{% url "import_raster_zip" event_id=event_id %}';
+const STATS_URL          = '{% url "json_event_stats" event_id=id %}';
+const CHECKIN_URL        = '{% url "api_check_in" %}';
+const CHECKOUT_URL       = '{% url "api_check_out" %}';
+const PRINT_URL          = '{% url "print_raster_file" %}';
+
+function csrfToken() {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+}
+
+// ── DataTable ──────────────────────────────────────────────────────────────
+$(document).ready(function () {
+    var table = $('#participant_list').DataTable({
+        ajax: {
+            url: '{% url "json_event_participant" event_id=id %}',
+            dataType: 'json',
+            dataSrc: 'data'
         },
-        "columns": [
-            { 'data': null,
-                      render: function(data, type, row) {
-                              return row.first_name + ' ' + row.last_name;
-                      }
+        columns: [
+            // 0 – Name + code (searchable on name + code)
+            { data: null,
+              render: function(data, type, row) {
+                if (type === 'filter' || type === 'sort') {
+                    return (row.first_name + ' ' + (row.last_name||'') + ' ' + (row.code||'')).trim();
+                }
+                const name = (row.first_name + ' ' + (row.last_name||'')).trim();
+                const code = row.code
+                    ? `<br><small class="text-muted font-monospace" style="font-size:.72rem;">${row.code}</small>`
+                    : '';
+                return name + code;
+              }
             },
-            { 'data': 'company' },
-            { 'data': 'phone' },
-            { 'data': 'email' },
-            { 'data': 'ticket_type' },
-            { 'data': 'code' },
-            { 'data': 'status' },
-            { 'data': null,
-                      render: function(data, type, row) {
-                          let code;
-                          if (row.code) {
-                              code = row.code
-                          } else {
-                              code = row.id
-                          }
-                          let buttons;
-                          if (row.status == 'Attending') {
-                              buttons = `<a href="javascript:checkIn('${code}')"><span class="glyphicon glyphicon-log-in" aria-hidden="true"></span></a>`;
-                          } else if (row.status == 'Attended') {
-                              buttons = `<a href="javascript:checkOut('${code}')"><span class="glyphicon glyphicon-log-out" aria-hidden="true"></span></a>`;
-                          };
-                          buttons += ` <a href="javascript:printLabel('${code}')"><span class="glyphicon glyphicon-print" aria-hidden="true"></span></a>
-                          <a href="{% url 'list_my_participant' %}${row.id}/edit"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></span></a>`;
-
-                          return buttons;
-                      },
-                      width: '1%',
-                      orderable: false
+            { data: 'company' },   // 1
+            { data: 'phone' },     // 2  hidden
+            { data: 'email' },     // 3  hidden
+            { data: 'ticket_type' }, // 4 hidden
+            // 5 – status
+            { data: 'status',
+              render: function(data) {
+                if (data === 'Attending') return '<span class="badge rounded-pill badge-attending">Attending</span>';
+                if (data === 'Attended')  return '<span class="badge rounded-pill badge-attended">Attended</span>';
+                return data || '';
+              }
+            },
+            // 6 – actions
+            { data: null,
+              orderable: false,
+              className: 'text-end',
+              render: function(data, type, row) {
+                const code = row.code || row.id;
+                const pid  = row.id;
+                let checkinBtn = '';
+                if (row.status === 'Attending') {
+                    checkinBtn = `<a href="javascript:checkIn('${code}')" class="btn btn-sm btn-outline-success me-1" title="Check in"><i class="bi bi-box-arrow-in-right"></i></a>`;
+                } else if (row.status === 'Attended') {
+                    checkinBtn = `<a href="javascript:checkOut('${code}')" class="btn btn-sm btn-outline-secondary me-1" title="Check out"><i class="bi bi-box-arrow-right"></i></a>`;
+                }
+                const name = (row.first_name + ' ' + (row.last_name||'')).trim();
+                const qrBtn    = `<a href="javascript:showQR('${code}','${name.replace(/'/g,"\\'")}')"
+                    class="btn btn-sm btn-outline-secondary me-1" title="Show QR code"><i class="bi bi-qr-code"></i></a>`;
+                const previewBtn = `<a href="javascript:previewLabel('${pid}','${code}','${row.label_png_url||''}')"
+                    class="btn btn-sm btn-outline-info me-1" title="Preview label"><i class="bi bi-eye"></i></a>`;
+                const regenBtn = `<a href="javascript:regenerateLabel('${pid}')"
+                    class="btn btn-sm btn-outline-warning me-1" title="Regenerate label" id="regen-${pid}"><i class="bi bi-arrow-clockwise"></i></a>`;
+                const printBtn = `<a href="javascript:printLabel('${code}')" class="btn btn-sm btn-outline-primary me-1" title="Print label"><i class="bi bi-printer"></i></a>`;
+                const editBtn  = `<a href="{% url 'list_my_participant' %}${pid}/edit" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>`;
+                return checkinBtn + qrBtn + previewBtn + regenBtn + printBtn + editBtn;
+              }
             }
-
         ],
         columnDefs: [
-            {
-                render: function ( data, type, row ) {
-                    if (data=='Attending') {
-                        return '<span class="label label-info">Attending</span>';
-                    } else if (data == 'Attended') {
-                        return '<span class="label label-success">Attended</span>';
-                    };
-                },
-                targets: 6,
-                width: '1%'
-            },
-            {
-                "targets": [ 2, 3, 4 ],
-                "visible": false
-            },
+            { targets: [2, 3, 4], visible: false }
         ],
-        //dom: "Bfrtip",
-        "select": false,
-        "order": [[ 1, "asc" ]],
-        "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]]
+        dom: '<"d-none"f>rtip',
+        select: false,
+        order: [[1, 'asc']],
+        lengthMenu: [[25, 50, 100, -1], [25, 50, 100, 'All']],
+        language: {
+            emptyTable: 'No participants found.',
+            zeroRecords: 'No participants match your search.',
+            info: 'Showing _START_–_END_ of _TOTAL_ participants',
+            infoFiltered: ' (filtered from _MAX_ total)'
+        },
+        initComplete: function() { updateResultCount(this.api()); },
+        drawCallback:  function() { updateResultCount(this.api()); }
     });
-    setInterval( function () {
+
+    // ── Custom search ──────────────────────────────────────────────────────
+    var searchTimeout;
+    $('#participantSearch').on('input', function () {
+        clearTimeout(searchTimeout);
+        var q = $(this).val();
+        searchTimeout = setTimeout(function () {
+            table.search(q).draw();
+            updateChip(q);
+        }, 200);
+    });
+    $('#clearSearch').on('click', function () {
+        $('#participantSearch').val('').trigger('input');
+    });
+    function updateChip(q) {
+        if (q) { $('#searchChip').removeClass('d-none').find('.chip-text').text(q); }
+        else   { $('#searchChip').addClass('d-none'); }
+    }
+    $('#searchChip .chip-remove').on('click', function () {
+        $('#participantSearch').val('').trigger('input');
+    });
+
+    // ── Status filter pills ────────────────────────────────────────────────
+    $('#filterAll, #filterAttending, #filterAttended').on('click', function () {
+        $('#filterAll, #filterAttending, #filterAttended').removeClass('active');
+        $(this).addClass('active');
+        table.column(5).search($(this).data('status') || '').draw();
+    });
+
+    function updateResultCount(api) {
+        var info = api.page.info();
+        $('#resultCount').text(info.recordsDisplay + ' of ' + info.recordsTotal);
+    }
+
+    // ── Stats polling ──────────────────────────────────────────────────────
+    function refreshStats() {
+        $.getJSON(STATS_URL, function(data) {
+            $('#checkin_count').html(data.attended + ' / ' + data.total);
+        });
+    }
+    refreshStats();
+    setInterval(function () {
         table.ajax.reload(null, false);
-    }, 3000 );
+        refreshStats();
+    }, 5000);
 });
-async function printLabel(code) {
-    const apiUrl = '{% url "print_raster_file" %}';
 
-    try {
-        const params = {
-            code: code
-        };
-        const response = await fetch(apiUrl, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'omit',
-            body: JSON.stringify(params)
-        });
+// ── Label preview ──────────────────────────────────────────────────────────
+function previewLabel(pid, code, existingUrl) {
+    const modal   = new bootstrap.Modal(document.getElementById('labelPreviewModal'));
+    const img     = document.getElementById('labelPreviewImg');
+    const spinner = document.getElementById('labelPreviewSpinner');
+    const empty   = document.getElementById('labelPreviewEmpty');
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
+    img.classList.add('d-none');
+    empty.classList.add('d-none');
+    spinner.classList.remove('d-none');
+    modal.show();
 
-        const data = await response.json();
-        return {
-            success: true,
-            data: data
-        };
-    } catch (error) {
-        console.error('PUT API call failed:', error);
-        return {
-            success: false,
-            error: error.message
-        };
-    }
+    const url = `/badgeprint/my/${EVENT_ID}/participant/${pid}/preview-label/?t=${Date.now()}`;
+    const probe = new Image();
+    probe.onload = function () {
+        spinner.classList.add('d-none');
+        img.src = url;
+        img.classList.remove('d-none');
+    };
+    probe.onerror = function () {
+        spinner.classList.add('d-none');
+        empty.classList.remove('d-none');
+    };
+    probe.src = url;
 }
-async function checkIn(code) {
-    const apiUrl = '{% url "api_check_in" %}';
-    try {
-        const params = {
-            code: code,
-            print_label: 1
-        };
-        const response = await fetch(apiUrl, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'omit',
-            body: JSON.stringify(params)
-        });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
+// ── Regenerate single label ────────────────────────────────────────────────
+function regenerateLabel(pid) {
+    const btn = document.getElementById('regen-' + pid);
+    if (btn) { btn.innerHTML = '<i class="bi bi-arrow-clockwise spin"></i>'; btn.style.pointerEvents = 'none'; }
+    fetch(`/badgeprint/my/${EVENT_ID}/participant/${pid}/regenerate-label/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken(), 'Content-Type': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (btn) { btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>'; btn.style.pointerEvents = ''; }
+        if (data.status !== 'ok') { alert('Regenerate failed: ' + (data.message || data.status)); }
+    })
+    .catch(() => {
+        if (btn) { btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>'; btn.style.pointerEvents = ''; }
+    });
+}
+
+// ── Regenerate all labels ──────────────────────────────────────────────────
+document.getElementById('btnRegenAll').addEventListener('click', function () {
+    if (!confirm('Regenerate label graphics and raster files for ALL participants? This may take a while.')) return;
+
+    const bar      = document.getElementById('regenProgressBar');
+    const pct      = document.getElementById('regenProgressPct');
+    const label    = document.getElementById('regenProgressLabel');
+    const progress = document.getElementById('regenProgress');
+
+    progress.classList.remove('d-none');
+    bar.style.width = '0%';
+    pct.textContent = '0%';
+    label.textContent = 'Regenerating…';
+
+    // Animate progress while waiting (indeterminate feel)
+    let fake = 0;
+    const fakeTimer = setInterval(function () {
+        fake = Math.min(fake + 2, 85);
+        bar.style.width = fake + '%';
+        pct.textContent = fake + '%';
+    }, 300);
+
+    fetch(REGEN_ALL_URL, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken(), 'Content-Type': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        clearInterval(fakeTimer);
+        bar.style.width = '100%';
+        pct.textContent = '100%';
+        bar.classList.remove('progress-bar-animated');
+
+        const errDiv   = document.getElementById('regenErrors');
+        const errCount = document.getElementById('regenErrorCount');
+        const errBody  = document.getElementById('regenErrorBody');
+
+        if (data.failed && data.failed.length) {
+            label.textContent = data.generated + ' generated, ' + data.failed.length + ' failed.';
+            label.className = 'small fw-semibold text-warning';
+            bar.classList.add('bg-warning');
+
+            // Populate error table
+            errBody.innerHTML = data.failed.map(function(f) {
+                return '<tr><td class="text-break">' + (f.name || f.id) + '</td>'
+                     + '<td class="text-danger text-break">' + (f.error || 'unknown error') + '</td></tr>';
+            }).join('');
+            errCount.textContent = data.failed.length;
+            errDiv.classList.remove('d-none');
+        } else {
+            label.textContent = data.generated + ' labels regenerated successfully.';
+            label.className = 'small fw-semibold text-success';
+            bar.classList.add('bg-success');
+            errDiv.classList.add('d-none');
+            setTimeout(function () {
+                progress.classList.add('d-none');
+                bar.classList.remove('bg-success', 'bg-warning');
+                bar.classList.add('bg-primary', 'progress-bar-animated');
+                label.className = 'small fw-semibold';
+            }, 4000);
         }
+    })
+    .catch(function(err) {
+        clearInterval(fakeTimer);
+        label.textContent = 'Request failed: ' + err.message;
+        label.className = 'small fw-semibold text-danger';
+        bar.classList.add('bg-danger');
+        bar.classList.remove('progress-bar-animated');
+    });
+});
 
-        const data = await response.json();
-        return {
-            success: true,
-            data: data
-        };
-    } catch (error) {
-        console.error('PUT API call failed:', error);
-        return {
-            success: false,
-            error: error.message
-        };
-    }
+// ── Import raster ZIP ──────────────────────────────────────────────────────
+document.getElementById('btnImportRaster').addEventListener('click', function () {
+    document.getElementById('importRasterResult').innerHTML = '';
+    document.getElementById('rasterZipInput').value = '';
+    new bootstrap.Modal(document.getElementById('importRasterModal')).show();
+});
+
+document.getElementById('importRasterForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const resultDiv = document.getElementById('importRasterResult');
+    const submitBtn = document.getElementById('importRasterSubmit');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Importing…';
+
+    const fd = new FormData(this);
+    fetch(IMPORT_RASTER_URL, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken() },
+        body: fd
+    })
+    .then(r => r.json())
+    .then(data => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-upload me-1"></i>Import';
+        if (data.status === 'ok') {
+            resultDiv.innerHTML = `<div class="alert alert-success py-2 mb-0">
+                Imported <strong>${data.imported}</strong> raster file(s).
+                ${data.skipped ? data.skipped + ' file(s) skipped.' : ''}
+            </div>`;
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger py-2 mb-0">${data.message || 'Import failed.'}</div>`;
+        }
+    })
+    .catch(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-upload me-1"></i>Import';
+        resultDiv.innerHTML = '<div class="alert alert-danger py-2 mb-0">Network error.</div>';
+    });
+});
+
+// ── Check-in / out / print ─────────────────────────────────────────────────
+async function checkIn(code) {
+    const r = await fetch(CHECKIN_URL, { method: 'PUT', headers: {'Content-Type':'application/json'}, credentials: 'omit', body: JSON.stringify({code, print_label: 1}) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
 }
 async function checkOut(code) {
-    const apiUrl = '{% url "api_check_out" %}';
-    try {
-        const params = {
-            code: code,
-            print_label: 0
-        };
-        const response = await fetch(apiUrl, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'omit',
-            body: JSON.stringify(params)
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return {
-            success: true,
-            data: data
-        };
-    } catch (error) {
-        console.error('PUT API call failed:', error);
-        return {
-            success: false,
-            error: error.message
-        };
-    }
+    await fetch(CHECKOUT_URL, { method: 'PUT', headers: {'Content-Type':'application/json'}, credentials: 'omit', body: JSON.stringify({code, print_label: 0}) });
 }
-function filterclear() {
-    table.fnFilterClear();
+async function printLabel(code) {
+    await fetch(PRINT_URL, { method: 'PUT', headers: {'Content-Type':'application/json'}, credentials: 'omit', body: JSON.stringify({code}) });
 }
-setInterval(function(){
-$.getJSON( "{% url 'json_event_stats' event_id=id %}", function( data ) {
-  $('#checkin_count').html(data.attended + " / " + data.total);
-});
-}, 5000);
+
+// ── QR code popup ──────────────────────────────────────────────────────────
+var _qrInstance = null;
+function showQR(code, name) {
+    document.getElementById('qrModalName').textContent = name;
+    document.getElementById('qrModalCode').textContent = code;
+
+    var container = document.getElementById('qrcode');
+    container.innerHTML = '';          // clear previous
+
+    _qrInstance = new QRCode(container, {
+        text:         code,
+        width:        220,
+        height:       220,
+        colorDark:    '#0f172a',
+        colorLight:   '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+    });
+
+    new bootstrap.Modal(document.getElementById('qrModal')).show();
+}
 </script>
-{% endblock %}
-{% block sidebar %}
-<ul class="nav nav-sidebar">
-  <li class="active"><a href="{% url 'list_all_event' %}">All Events</a></li>
-</ul>
-{% endblock %}
-{% block content %}
-  <h1>{{ event_name }}</h1>
-  <span class="glyphicon glyphicon-user"></span> <span id="checkin_count">? / ?</span>
-  <a href="{% url 'participant_create_view' event_id=event_id %}"><span class="glyphicon glyphicon-plus" aria-hidden="true"></span></a>
- <div class="table-responsive">
-    <table class="table table-striped" id="participant_list">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Company</th>
-          <th>Phone</th>
-          <th>Email</th>
-          <th>Ticket Type</th>
-          <th>Code</th>
-          <th>Status</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-    </table>
- </div>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { display: inline-block; animation: spin .6s linear infinite; }
+</style>
 {% endblock %}

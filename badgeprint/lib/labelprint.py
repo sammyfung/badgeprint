@@ -1,6 +1,6 @@
 # -*- coding:utf8 -*-
 # labelprint.py by Sammy Fung <sammy@sammy.hk>
-import logging, subprocess, re, os
+import io, logging, subprocess, re, os
 from django.conf import settings
 from PIL import Image, ImageDraw, ImageFont
 from brother_ql.devicedependent import label_type_specs
@@ -12,6 +12,67 @@ logger = logging.getLogger(__name__)
 
 BACKEND_CLASS = None
 BACKEND_STRING_DESCR = None
+
+# Module-level font cache: path -> size -> ImageFont object
+_FONT_CACHE = {}
+
+def _get_font(font_path, size, encoding=None):
+    """Return a cached ImageFont, loading it only once per (path, size)."""
+    key = (font_path, size, encoding)
+    if key not in _FONT_CACHE:
+        if encoding:
+            _FONT_CACHE[key] = ImageFont.truetype(font_path, size, encoding=encoding)
+        else:
+            _FONT_CACHE[key] = ImageFont.truetype(font_path, size)
+    return _FONT_CACHE[key]
+
+# Module-level FONTS dict cache so get_fonts() isn't re-run on every call
+_FONTS_CACHE = None
+
+def _get_fonts_cached(font_folder=None):
+    """Return FONTS dict, rebuilding only when not yet loaded."""
+    global _FONTS_CACHE
+    if _FONTS_CACHE is None:
+        _FONTS_CACHE = get_fonts()
+        if font_folder:
+            _FONTS_CACHE.update(get_fonts(font_folder))
+    return _FONTS_CACHE
+
+def invalidate_font_cache():
+    """Call this if fonts on disk change at runtime."""
+    global _FONTS_CACHE, _FONT_CACHE
+    _FONTS_CACHE = None
+    _FONT_CACHE.clear()
+
+# Module-level logo cache: logo path/name -> bytes read into memory
+_LOGO_CACHE = {}
+
+def _get_logo_image(logo):
+    """
+    Open a logo file exactly once, read it fully into a BytesIO buffer,
+    cache the bytes, and return a new Image object backed by memory.
+    This prevents PIL from holding the original file descriptor open.
+    """
+    # Derive a stable cache key (works for FieldFile, str path, or Path)
+    if hasattr(logo, 'name'):
+        key = logo.name  # Django FieldFile
+    else:
+        key = str(logo)
+
+    if key not in _LOGO_CACHE:
+        if hasattr(logo, 'open'):
+            # Django FieldFile — use the storage API
+            with logo.open('rb') as f:
+                _LOGO_CACHE[key] = f.read()
+        else:
+            with open(str(logo), 'rb') as f:
+                _LOGO_CACHE[key] = f.read()
+
+    return Image.open(io.BytesIO(_LOGO_CACHE[key]))
+
+def invalidate_logo_cache():
+    """Call this when an event logo is updated."""
+    _LOGO_CACHE.clear()
 
 
 def get_label_context(first_name, last_name, company, default_label_size):
@@ -57,15 +118,15 @@ def get_label_context(first_name, last_name, company, default_label_size):
 
     context['font_path'] = get_font_path(context['font_family'], context['font_style'])
     # Use Chinese font if first name is not starting with A-Z
-    if not re.search('^[A-Za-z0-9,.()\-/ ]*$', last_name):
+    if not re.search(r'^[A-Za-z0-9,.()\/\- ]*$', last_name):
         context['name'] = "%s%s" % (first_name, last_name)
         context['font_path'] = get_font_path('Noto Sans TC', 'ExtraBold')
 
-    if not re.search('^[A-Za-z0-9,.()\-/ ]*$', first_name):
+    if not re.search(r'^[A-Za-z0-9,.()\/\- ]*$', first_name):
         context['name'] = "%s%s" % (last_name, first_name)
         context['font_path'] = get_font_path('Noto Sans TC', 'ExtraBold')
 
-    if not re.search('^[A-Za-z0-9,.()\-/ ]*$', company):
+    if not re.search(r'^[A-Za-z0-9,.()\/\- ]*$', company):
         context['font_path'] = get_font_path('Noto Sans TC', 'ExtraBold')
 
     def get_label_dimensions(label_size):
@@ -87,12 +148,13 @@ def get_label_context(first_name, last_name, company, default_label_size):
 def create_label_im_62x29(**kwargs):
     label_type = label_type_specs[kwargs['label_size']]['kind']
     label_dimension = label_type_specs[kwargs['label_size']]['dots_printable']
-    im_font = ImageFont.truetype(kwargs['font_path'], kwargs['font_size'])
-    company_font = ImageFont.truetype(kwargs['font_path'], kwargs['company_font_size'])
+    im_font = _get_font(kwargs['font_path'], kwargs['font_size'])
+    company_font = _get_font(kwargs['font_path'], kwargs['company_font_size'])
     im = Image.new('L', (20, 20), 'white')
     draw = ImageDraw.Draw(im)
     company_textsize = draw.textbbox((0, 0), kwargs['company'], font=company_font)
     textsize = draw.textbbox((0, 0), kwargs['name'], font=im_font)
+    im.close()
     # Label DK-11209 is 696x271px
     if textsize[2] > label_dimension[0]:
         kwargs['name'] = f"{kwargs['first_name']}\n{kwargs['last_name']}"
@@ -126,13 +188,6 @@ def create_label_im_62x29(**kwargs):
     company_horizontal_offset = max((width - company_textsize[2]) // 2, 0)
     company_offset = company_horizontal_offset, company_vertical_offset
     draw.multiline_text(company_offset, kwargs['company'], (0), font=company_font, align=kwargs['align'])
-    # Save the badge image to MEDIA_ROOT
-    try:
-        im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{kwargs['name']}.png")
-    except FileNotFoundError:
-        os.mkdir(settings.MEDIA_ROOT + '/badgeprint')
-        os.mkdir(settings.MEDIA_ROOT + '/badgeprint/labels')
-        im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{kwargs['name']}.png")
     return im
 
 
@@ -140,13 +195,14 @@ def create_label_im_62x29(**kwargs):
 def create_label_im_62x100(**kwargs):
     label_type = label_type_specs[kwargs['label_size']]['kind']
     label_dimension = label_type_specs[kwargs['label_size']]['dots_printable']
-    im_font = ImageFont.truetype(kwargs['font_path'], kwargs['font_size'], encoding="utf-8")
-    company_font = ImageFont.truetype(kwargs['font_path'], kwargs['company_font_size'])
+    im_font = _get_font(kwargs['font_path'], kwargs['font_size'], encoding="utf-8")
+    company_font = _get_font(kwargs['font_path'], kwargs['company_font_size'])
     im = Image.new('L', (20, 20), 'white')
     draw = ImageDraw.Draw(im)
     company_textsize = draw.textbbox((0, 0), kwargs['company'], font=company_font)
     textsize = draw.textbbox((0, 0), kwargs['name'], font=im_font)
-    # Label DK-11209 is 696x1109px
+    im.close()
+    # Label DK-11202 is 696x1109px
     if textsize[2] > label_dimension[0]:
         kwargs['name'] = f"{kwargs['first_name']}\n{kwargs['last_name']}"
         textsize = draw.textbbox((0, 0), kwargs['name'], font=im_font)
@@ -175,10 +231,10 @@ def create_label_im_62x100(**kwargs):
             horizontal_offset = kwargs['margin_left']
     offset = horizontal_offset, vertical_offset
     if kwargs['logo'] is not None and kwargs['logo'] != '':
-        logo = Image.open(kwargs['logo'], 'r')
-        logo_width, logo_height = logo.size
-        logo_offset = int((width - logo_width)/2), 20
-        im.paste(logo, logo_offset)
+        with _get_logo_image(kwargs['logo']) as logo:
+            logo_width = logo.size[0]
+            logo_offset = int((width - logo_width)/2), 20
+            im.paste(logo, logo_offset)
     draw.multiline_text(offset, kwargs['name'], (0), font=im_font, align=kwargs['align'])
     company_vertical_offset = vertical_offset + textsize[3] + 20
     company_horizontal_offset = max((width - company_textsize[2]) // 2, 0)
@@ -212,13 +268,6 @@ def create_label_im_62x100(**kwargs):
         eventname_offset = eventname_horizontal_offset, eventname_vertical_offset
         draw.multiline_text(eventname_offset, eventname, (0), font=eventname_font, align=kwargs['align'])
 
-    # Save the badge image to MEDIA_ROOT
-    try:
-        im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{kwargs['name']}.png")
-    except FileNotFoundError:
-        os.mkdir(settings.MEDIA_ROOT + '/badgeprint')
-        os.mkdir(settings.MEDIA_ROOT + '/badgeprint/labels')
-        im.save(f"{settings.MEDIA_ROOT}/badgeprint/labels/{kwargs['name']}.png")
     return im
 
 
@@ -231,9 +280,7 @@ def print_text(**data):
     DEFAULT_LABEL_SIZE  = data['label_size'] # "62x100"
     DEFAULT_ORIENTATION = data['orientation'] # "rotated"
 
-    FONTS = get_fonts()
-    if font_folder:
-        FONTS.update(get_fonts(font_folder))
+    FONTS = _get_fonts_cached(font_folder)
 
     try:
         context = get_label_context(data['first_name'], data['last_name'], data['company'], data['label_size'])
@@ -254,41 +301,34 @@ def print_text(**data):
     context['label_tpl'] = data['label_tpl']
     context['ticket_type'] = data['ticket_type']
     im = eval('create_label_im_' + data['label_size'])(**context)
-    data['image'] = im
     image_path = f'{settings.MEDIA_ROOT}/badgeprint/labels'
+    os.makedirs(image_path, exist_ok=True)
     image_file = f"{image_path}/{data['code']}-{data['label_size']}.png"
-    # Save the badge image to MEDIA_ROOT
-    try:
-        im.save(image_file)
-    except FileNotFoundError:
-        os.makedirs(image_path, exist_ok=True)  # Ensure the directory exists
-        im.save(image_file)
+    im.save(image_file)
 
     qlr = BrotherQLRaster(MODEL)
     rotate = 0 if data['orientation'] == 'standard' else 90
     if context['label_size'] == '62x29':
         rotate = 0
     create_label(qlr, im, context['label_size'], threshold=context['threshold'], cut=True, rotate=rotate)
-    print(f'qlr.data ({type(qlr.data)}) len:{len(qlr.data)}')
+    im.close()
+
+    logger.debug('qlr.data (%s) len:%d', type(qlr.data), len(qlr.data))
 
     # Save raster bytes to a file
     raster_file = f"{image_path}/{data['code']}-{data['label_size']}.raster"
-    os.makedirs(os.path.dirname(raster_file), exist_ok=True) # Ensure the directory exists
-    with open(raster_file, 'wb') as file:
-        file.write(qlr.data)
-    file.close()
+    with open(raster_file, 'wb') as f:
+        f.write(qlr.data)
     status = True
     # status = send_raster_file_to_printer(data['printer_uri'], raster_file)
     return status
 
 
-def send_raster_file_to_printer(printer_uri, raster_file_path):
+def send_raster_file_to_printer(printer_uri, raster_file_path, model='QL-720NW'):
     global DEBUG, FONTS, DEFAULT_FONT, MODEL, BACKEND_CLASS, DEFAULT_ORIENTATION, DEFAULT_LABEL_SIZE
     selected_backend = guess_backend(printer_uri)
     BACKEND_CLASS = backend_factory(selected_backend)['backend_class']
-    MODEL = "QL-720NW"
-    # DEFAULT_LABEL_SIZE  = "62x100"
-    # DEFAULT_ORIENTATION = "rotated"
+    MODEL = model
 
     status = 'ok'
     qlr = BrotherQLRaster(MODEL)
@@ -311,45 +351,158 @@ def send_raster_file_to_printer(printer_uri, raster_file_path):
     return status
 
 
+def send_label_by_code(code, printer_uri=None, model='QL-720NW'):
+    """
+    Find the pre-rendered raster file for *code* in MEDIA_ROOT and send it
+    directly to the label printer.
+
+    The raster file is expected at:
+        <MEDIA_ROOT>/badgeprint/labels/<code>-<label_size>.raster
+
+    If multiple raster files exist for the same code (different label sizes),
+    the most recently modified one is used.
+
+    Parameters
+    ----------
+    code        : str   Participant code (or UUID).
+    printer_uri : str   Printer URI, e.g. 'tcp://192.168.1.10:9100'.
+                        Reads settings.BROTHER_QL_PRINTER_URI when omitted.
+    model       : str   Brother QL model string (default 'QL-720NW').
+
+    Returns
+    -------
+    str  'ok' on success, or an error description string.
+    """
+    # ── Resolve printer URI ────────────────────────────────────────────────
+    if not printer_uri:
+        try:
+            printer_uri = settings.BROTHER_QL_PRINTER_URI
+        except AttributeError:
+            pass
+    if not printer_uri:
+        return 'no printer URI configured'
+
+    # ── Locate raster file(s) for this code ───────────────────────────────
+    label_dir = os.path.join(settings.MEDIA_ROOT, 'badgeprint', 'labels')
+    if not os.path.isdir(label_dir):
+        return 'label directory not found: %s' % label_dir
+
+    # Glob for any raster file whose name starts with the code
+    prefix = code + '-'
+    candidates = [
+        os.path.join(label_dir, f)
+        for f in os.listdir(label_dir)
+        if f.startswith(prefix) and f.endswith('.raster')
+    ]
+
+    if not candidates:
+        return 'raster file not found for code: %s' % code
+
+    # Pick the most recently modified file if there are multiple sizes
+    raster_path = max(candidates, key=os.path.getmtime)
+    logger.debug('send_label_by_code: using raster file %s', raster_path)
+
+    # ── Send to printer ────────────────────────────────────────────────────
+    return send_raster_file_to_printer(printer_uri, raster_path, model=model)
+
+
 def get_fonts(folder=None):
     """
     Scan a folder (or the system) for .ttf / .otf fonts and
-    return a dictionary of the structure  family -> style -> file path
+    return a dictionary of the structure  family -> style -> file path.
+
+    For a local folder, tries fc-scan first; falls back to a pure-Python
+    walk that derives family/style from the filename when fc-scan is
+    unavailable or returns a non-zero exit code.
     """
     fonts = {}
+
     if folder:
-        cmd = ['fc-scan', '--format', '"%{file}:%{family}:style=%{style}\n"', folder]
+        # ── Try fc-scan; fall back to filename-based scan on any failure ──
+        lines = _fc_scan_lines(folder)
+        if lines is not None:
+            _parse_fc_lines(lines, fonts)
+        else:
+            _scan_folder_fallback(folder, fonts)
     else:
-        cmd = ['fc-list', ':', 'file', 'family', 'style']
-    for line in subprocess.check_output(cmd).decode('utf-8').split("\n"):
-        logger.debug(line)
-        line.strip()
-        if not line: continue
-        if 'otf' not in line and 'ttf' not in line: continue
+        # System fonts via fc-list
+        try:
+            output = subprocess.check_output(
+                ['fc-list', ':', 'file', 'family', 'style'],
+                stderr=subprocess.DEVNULL,
+            )
+            _parse_fc_lines(output.decode('utf-8').split('\n'), fonts)
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            logger.warning('fc-list failed: %s', e)
+
+    return fonts
+
+
+def _fc_scan_lines(folder):
+    """Run fc-scan on *folder*; return list of lines or None on failure."""
+    cmd = ['fc-scan', '--format', '%{file}:%{family}:style=%{style}\n', folder]
+    try:
+        output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
+        return output.decode('utf-8').split('\n')
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        logger.warning('fc-scan failed for %s (%s); using filename fallback.', folder, e)
+        return None
+
+
+def _parse_fc_lines(lines, fonts):
+    """Parse fc-list / fc-scan output lines into the *fonts* dict."""
+    for line in lines:
+        line = line.strip().strip('"')
+        if not line:
+            continue
+        if 'otf' not in line and 'ttf' not in line:
+            continue
         parts = line.split(':')
-        path = parts[0]
-        if not re.search('^/', path):
-            path = re.sub(r'"', '', path)
+        if len(parts) < 2:
+            continue
+        path = parts[0].strip()
+        if not os.path.isabs(path):
             path = re.sub(r'^\.', '', path)
             path = os.getcwd() + path
-        families = parts[1].strip().split(',')
+        families = [f.strip() for f in parts[1].split(',')]
         try:
-            styles = parts[2].split('=')[1].split(',')
+            styles = [s.strip() for s in parts[2].split('=')[1].split(',')]
         except Exception:
-            styles = ''
+            styles = ['Regular']
         if len(families) == 1 and len(styles) > 1:
-            families = [families[0]] * len(styles)
+            families = families * len(styles)
         elif len(families) > 1 and len(styles) == 1:
-            styles = [styles[0]] * len(families)
+            styles = styles * len(families)
         if len(families) != len(styles):
-            logger.debug("Problem with this font: " + line)
+            logger.debug('Skipping font line (family/style mismatch): %s', line)
             continue
-        for i in range(len(families)):
-            try: fonts[families[i]]
-            except: fonts[families[i]] = dict()
-            fonts[families[i]][styles[i]] = path
-            logger.debug("Added this font: " + str((families[i], styles[i], path)))
-    return fonts
+        for family, style in zip(families, styles):
+            fonts.setdefault(family, {})[style] = path
+            logger.debug('Added font: %s / %s -> %s', family, style, path)
+
+
+def _scan_folder_fallback(folder, fonts):
+    """
+    Pure-Python fallback: walk *folder* and register every .ttf / .otf file.
+    Family and style are guessed from the filename stem
+    (e.g. 'OpenSans-Bold.ttf' -> family='OpenSans', style='Bold').
+    """
+    ext = ('.ttf', '.otf')
+    for dirpath, _, filenames in os.walk(folder):
+        for fname in filenames:
+            if not fname.lower().endswith(ext):
+                continue
+            fpath = os.path.join(dirpath, fname)
+            stem = os.path.splitext(fname)[0]
+            # Split on the last '-' to get family / style
+            if '-' in stem:
+                family, style = stem.rsplit('-', 1)
+            else:
+                family, style = stem, 'Regular'
+            family = family.replace('_', ' ').strip()
+            style  = style.replace('_', ' ').strip() or 'Regular'
+            fonts.setdefault(family, {})[style] = fpath
+            logger.debug('Fallback font: %s / %s -> %s', family, style, fpath)
 
 
 def label_print():
@@ -373,8 +526,6 @@ def label_print():
     DEFAULT_LABEL_SIZE  = default_label_size
     DEFAULT_ORIENTATION = default_orientation
 
-    FONTS = get_fonts()
-    if font_folder:
-        FONTS.update(get_fonts(font_folder))
+    FONTS = _get_fonts_cached(font_folder)
 
 

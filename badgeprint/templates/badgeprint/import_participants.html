@@ -1,0 +1,212 @@
+{% extends "badgeprint/base.html" %}
+{% load static %}
+{% block title %}Import Participants{% endblock %}
+
+{% block sidebar %}
+<span class="sidebar-section">Events</span>
+<a href="{% url 'list_my_event' %}" class="sidebar-link">
+  <i class="bi bi-calendar-check"></i> My Events
+</a>
+<a href="{% url 'get_my_event' event_id=event_id %}" class="sidebar-link">
+  <i class="bi bi-people"></i> Participants
+</a>
+<a href="{% url 'import_participants_upload' event_id=event_id %}" class="sidebar-link active">
+  <i class="bi bi-filetype-csv"></i> Import CSV
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-start justify-content-between mb-4 flex-wrap gap-2">
+  <div>
+    <h4 class="fw-bold mb-0">Import Participants</h4>
+    <p class="text-muted small mb-0">
+      <i class="bi bi-calendar-event me-1"></i>Event: <strong>{{ event.name }}</strong>
+    </p>
+  </div>
+  <a href="{% url 'get_my_event' event_id=event_id %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back to participants
+  </a>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  {% endfor %}
+{% endif %}
+
+<!-- Step indicator -->
+<div class="d-flex align-items-center gap-2 mb-4">
+  <div class="d-flex align-items-center gap-2">
+    <span class="d-flex align-items-center justify-content-center rounded-circle fw-bold"
+          style="width:2rem;height:2rem;font-size:.85rem;
+                 background:{% if step == 'upload' %}#6366f1{% else %}#e2e8f0{% endif %};
+                 color:{% if step == 'upload' %}#fff{% else %}#64748b{% endif %};">
+      1
+    </span>
+    <span class="fw-semibold {% if step != 'upload' %}text-muted{% endif %}" style="font-size:.9rem;">Upload CSV</span>
+  </div>
+  <div class="flex-grow-1 border-top mx-1" style="max-width:3rem;"></div>
+  <div class="d-flex align-items-center gap-2">
+    <span class="d-flex align-items-center justify-content-center rounded-circle fw-bold"
+          style="width:2rem;height:2rem;font-size:.85rem;
+                 background:{% if step == 'map' %}#6366f1{% else %}#e2e8f0{% endif %};
+                 color:{% if step == 'map' %}#fff{% else %}#64748b{% endif %};">
+      2
+    </span>
+    <span class="fw-semibold {% if step != 'map' %}text-muted{% endif %}" style="font-size:.9rem;">Map Columns</span>
+  </div>
+</div>
+
+{% if step == 'upload' %}
+<!-- ── Step 1: Upload ── -->
+<div class="card border-0 shadow-sm rounded-3">
+  <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
+    <h6 class="fw-semibold mb-0 text-muted text-uppercase" style="font-size:.7rem;letter-spacing:.07rem;">
+      <i class="bi bi-upload me-2"></i>Upload CSV File
+    </h6>
+  </div>
+  <div class="card-body px-4 pb-4">
+    <p class="text-muted mb-3">
+      Upload a CSV file with participant data. The first row should contain column headers.
+      Accepted encodings: UTF-8, UTF-8 BOM, Latin-1.
+    </p>
+    <form method="post" enctype="multipart/form-data" action="{% url 'import_participants_upload' event_id=event_id %}">
+      {% csrf_token %}
+      <div class="mb-4">
+        <label for="csv_file" class="form-label fw-semibold">
+          CSV File <span class="text-danger">*</span>
+        </label>
+        <input type="file" class="form-control" id="csv_file" name="csv_file"
+               accept=".csv,text/csv" required>
+        <div class="form-text">Maximum file size: 10 MB. Columns can be in any order.</div>
+      </div>
+      <button type="submit" class="btn btn-primary px-4">
+        <i class="bi bi-cloud-upload me-1"></i>Upload &amp; Preview
+      </button>
+    </form>
+  </div>
+</div>
+
+{% elif step == 'map' %}
+<!-- ── Step 2: Map columns ── -->
+<form method="post" action="{% url 'import_participants_confirm' event_id=event_id %}">
+  {% csrf_token %}
+
+  <!-- CSV preview -->
+  <div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-header bg-white border-0 pt-4 pb-2 px-4 d-flex align-items-center justify-content-between">
+      <h6 class="fw-semibold mb-0 text-muted text-uppercase" style="font-size:.7rem;letter-spacing:.07rem;">
+        <i class="bi bi-table me-2"></i>CSV Preview <span class="text-muted fw-normal">(first row = headers)</span>
+      </h6>
+      <span class="badge bg-light text-muted border">{{ headers|length }} columns detected</span>
+    </div>
+    <div class="card-body px-4 pb-4">
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle mb-0" style="font-size:.82rem;">
+          <thead class="table-light">
+            <tr>
+              <th class="text-muted" style="width:2rem;">#</th>
+              {% for h in headers %}
+              <th>{{ h }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in preview %}
+            <tr>
+              <td class="text-muted">{{ forloop.counter }}</td>
+              {% for cell in row %}
+              <td>{{ cell }}</td>
+              {% endfor %}
+            </tr>
+            {% empty %}
+            <tr><td colspan="{{ headers|length|add:1 }}" class="text-center text-muted py-3">No data rows found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Column mapping -->
+  <div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
+      <h6 class="fw-semibold mb-0 text-muted text-uppercase" style="font-size:.7rem;letter-spacing:.07rem;">
+        <i class="bi bi-arrow-left-right me-2"></i>Map CSV Columns to Fields
+      </h6>
+    </div>
+    <div class="card-body px-4 pb-4">
+      <p class="text-muted small mb-4">
+        For each participant field, select which CSV column contains that data.
+        Choose <em>"— Skip —"</em> to leave the field empty.
+        <strong>First Name</strong> is required.
+      </p>
+      <div class="row g-3">
+        {% for field in import_fields %}
+        <div class="col-md-6 col-lg-4">
+          <label class="form-label fw-semibold" style="font-size:.85rem;">
+            {% if field == 'first_name' %}First Name <span class="text-danger">*</span>
+            {% elif field == 'last_name' %}Last Name
+            {% elif field == 'email' %}Email
+            {% elif field == 'company' %}Company / Organisation
+            {% elif field == 'phone' %}Phone
+            {% elif field == 'ticket_type' %}Ticket Type
+            {% elif field == 'code' %}Ticket / Badge Code
+            {% endif %}
+          </label>
+          <select class="form-select form-select-sm" name="map_{{ field }}" id="map_{{ field }}"
+                  {% if field == 'first_name' %}required{% endif %}>
+            <option value="">— Skip —</option>
+            {% for h in headers %}
+            <option value="{{ forloop.counter0 }}"
+              {% if h|lower == field or h|lower == field|cut:'_' %}selected{% endif %}>
+              {{ forloop.counter }}. {{ h }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="d-flex gap-2 align-items-center">
+    <button type="submit" class="btn btn-primary px-4">
+      <i class="bi bi-cloud-download me-1"></i>Import Participants
+    </button>
+    <a href="{% url 'import_participants_upload' event_id=event_id %}" class="btn btn-outline-secondary px-4">
+      <i class="bi bi-arrow-left me-1"></i>Re-upload
+    </a>
+    <a href="{% url 'get_my_event' event_id=event_id %}" class="btn btn-link text-muted px-2">Cancel</a>
+  </div>
+
+</form>
+{% endif %}
+{% endblock %}
+
+{% block js %}
+<script>
+// Auto-select matching column when CSV header closely matches field name
+document.addEventListener('DOMContentLoaded', function () {
+  const selects = document.querySelectorAll('select[name^="map_"]');
+  selects.forEach(function(sel) {
+    // Only auto-select if still on default (no pre-selection by server)
+    if (sel.value === '' && sel.options.length > 1) {
+      const fieldName = sel.name.replace('map_', '').toLowerCase();
+      Array.from(sel.options).forEach(function(opt) {
+        const colLabel = opt.text.replace(/^\d+\.\s*/, '').toLowerCase().trim()
+                          .replace(/[\s_-]+/g, '');
+        const fNorm = fieldName.replace('_', '');
+        if (colLabel === fNorm || colLabel.includes(fNorm) || fNorm.includes(colLabel)) {
+          if (opt.value !== '') sel.value = opt.value;
+        }
+      });
+    }
+  });
+});
+</script>
+{% endblock %}

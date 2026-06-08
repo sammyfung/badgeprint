@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect, Http404
+from django.shortcuts import render, redirect, get_object_or_404, Http404
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
@@ -15,21 +15,18 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import Community, Event, Printer, PrinterUser, Participant, Service
+from .forms import EventForm, RsvpForm
 from .lib.labelprint import print_text, send_raster_file_to_printer
 from .lib.brotherql import BrotherQLPrinter
 from .serializers import ParticipantSerializer, PrinterSerializer
-import json, os, requests, uuid
+import csv, glob, io, json, os, requests, uuid, zipfile
 
 def list_all_event(request):
-    # List all events
-    if request.user.is_authenticated:
-        return HttpResponseRedirect(reverse('list_my_event'))
-    else:
-        context = {
-            'json_api': 'json_list_public_event',
-        }
-        return render(request, 'badgeprint/front.html', context)
-        # return HttpResponseRedirect(reverse('badgeprint_logon'))
+    # List all events (public front page, accessible to all users)
+    context = {
+        'json_api': 'json_list_public_event',
+    }
+    return render(request, 'badgeprint/front.html', context)
 
 def list_my_event(request):
     # List my events
@@ -41,9 +38,66 @@ def list_my_event(request):
     else:
         return HttpResponseRedirect(reverse('badgeprint_logon'))
 
+@login_required
+def add_event(request):
+    if not request.user.has_perm('badgeprint.add_event'):
+        return HttpResponseRedirect(reverse('list_my_event'))
+    if request.method == 'POST':
+        form = EventForm(request.POST, request.FILES)
+        if form.is_valid():
+            event = form.save(commit=False)
+            event.owner = request.user
+            event.save()
+            messages.success(request, 'Event created successfully!')
+            return HttpResponseRedirect(reverse('list_my_event'))
+    else:
+        form = EventForm()
+    return render(request, 'badgeprint/event_form.html', {'form': form, 'title': 'Add Event'})
+
+@login_required
+def duplicate_event(request, event_id):
+    original = get_object_or_404(Event, id=event_id, owner=request.user)
+    new_event = Event(
+        platform=original.platform,
+        code=original.code,
+        name=f"Copy of {original.name}",
+        description=original.description,
+        start_time=original.start_time,
+        end_time=original.end_time,
+        website_url=original.website_url,
+        rsvp_url=original.rsvp_url,
+        rsvp_start_time=original.rsvp_start_time,
+        rsvp_end_time=original.rsvp_end_time,
+        city=original.city,
+        public=original.public,
+        highlight=original.highlight,
+        logo=original.logo,
+        label_tpl=original.label_tpl,
+        active=original.active,
+        owner=request.user,
+        community=original.community,
+    )
+    new_event.save()
+    messages.success(request, 'Event duplicated successfully! Edit the details below.')
+    return HttpResponseRedirect(reverse('edit_event', kwargs={'event_id': new_event.id}))
+
+
+@login_required
+def edit_event(request, event_id):
+    event = get_object_or_404(Event, id=event_id, owner=request.user)
+    if request.method == 'POST':
+        form = EventForm(request.POST, request.FILES, instance=event)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Event updated successfully!')
+            return HttpResponseRedirect(reverse('get_my_event', kwargs={'event_id': event_id}))
+    else:
+        form = EventForm(instance=event)
+    return render(request, 'badgeprint/event_form.html', {'form': form, 'title': 'Edit Event', 'event_id': event_id})
+
 def json_list_public_event(request):
     # return all public events in json
-    item_list = Event.objects.filter(public=True, active=True).order_by('-start_time')
+    item_list = Event.objects.filter(public=True, active=True).order_by('start_time')
     total = item_list.count()
     json_items = {'total': total, 'data': []}
     for i in item_list:
@@ -53,6 +107,8 @@ def json_list_public_event(request):
         json_item['name'] = i.name
         json_item['logo'] = f"{i.logo}"
         json_item['start_time'] = i.start_time
+        json_item['end_time'] = i.end_time
+        json_item['highlight'] = i.highlight
         json_items['data'].append(json_item)
     return JsonResponse(json_items)
 
@@ -76,17 +132,62 @@ def json_list_my_event(request):
     else:
         raise Http404("Authentication is required.")
 
+def _can_manage_event(user, event):
+    if not user.is_authenticated:
+        return False
+    if user.is_staff:
+        return True
+    if event.owner == user:
+        return True
+    if user.has_perm('badgeprint.change_event'):
+        return True
+    return False
+
+
 def get_event(request, event_id):
-    event = Event.objects.get(id=event_id)
+    event = get_object_or_404(Event, id=event_id)
+    can_manage = _can_manage_event(request.user, event)
+    if not event.public and not can_manage:
+        raise Http404
+    return render(request, 'badgeprint/event.html', {
+        'event': event,
+        'can_manage': can_manage,
+    })
+
+
+def list_event_participant(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+    if not _can_manage_event(request.user, event):
+        return HttpResponseRedirect(reverse('get_event', kwargs={'event_id': event_id}))
+    return render(request, 'badgeprint/participants.html', {
+        'id': event_id,
+        'event_name': event.name,
+        'event_id': event.id,
+    })
+
+
+def event_rsvp(request, event_id):
+    event = get_object_or_404(Event, id=event_id, public=True, rsvp=True)
+    initial = {}
     if request.user.is_authenticated:
-        # List all participants from requested event.
-        return render(request, 'badgeprint/participants.html', {'id': event_id,
-                                                                'event_name': event.name,
-                                                                'event_id': event.id})
+        initial = {
+            'first_name': request.user.first_name,
+            'last_name':  request.user.last_name,
+            'email':      request.user.email,
+        }
+    if request.method == 'POST':
+        form = RsvpForm(request.POST)
+        if form.is_valid():
+            participant = form.save(commit=False)
+            participant.event = event
+            participant.status = 'Attending'
+            if request.user.is_authenticated:
+                participant.user = request.user
+            participant.save()
+            return render(request, 'badgeprint/event_rsvp_done.html', {'event': event})
     else:
-        return render(request, 'badgeprint/event.html', {'id': event_id,
-                                                        'event_name': event.name,
-                                                        'event_id': event.id})
+        form = RsvpForm(initial=initial)
+    return render(request, 'badgeprint/event_rsvp.html', {'event': event, 'form': form})
 
 
 def json_event_participant(request, event_id):
@@ -99,7 +200,7 @@ def json_event_participant(request, event_id):
         for i in item_list:
             json_item = dict()
             json_item['id'] = i.id
-            json_item['event'] = f"{i.event}"
+            json_item['event'] = "%s" % i.event
             json_item['code'] = i.code
             json_item['ticket_type'] = i.ticket_type
             json_item['first_name'] = i.first_name
@@ -108,6 +209,16 @@ def json_event_participant(request, event_id):
             json_item['phone'] = i.phone
             json_item['email'] = i.email
             json_item['status'] = i.status
+            # Resolve label PNG url if it exists
+            code_key = i.code or str(i.id)
+            label_dir = os.path.join(settings.MEDIA_ROOT, 'badgeprint', 'labels')
+            png_candidates = glob.glob(os.path.join(label_dir, '%s-*.png' % code_key))
+            if png_candidates:
+                png_path = max(png_candidates, key=os.path.getmtime)
+                rel = os.path.relpath(png_path, settings.MEDIA_ROOT)
+                json_item['label_png_url'] = settings.MEDIA_URL + rel.replace(os.sep, '/')
+            else:
+                json_item['label_png_url'] = None
             json_items['data'].append(json_item)
         return JsonResponse(json_items)
     else:
@@ -183,7 +294,13 @@ def print_participant_label(request, participant_id):
             'ticket_type': participant.ticket_type,
             'debug': printer.debug,
         }
-        print_text(**data)
+        code_key = participant.code or str(participant.id)
+        label_dir = os.path.join(settings.MEDIA_ROOT, 'badgeprint', 'labels')
+        raster_path = _label_raster_path(code_key, label_dir)
+        if raster_path:
+            send_raster_file_to_printer(printer.uri, raster_path)
+        else:
+            print_text(**data)
         # return to list_event_participant page
         return HttpResponseRedirect(reverse('list_event_participant', kwargs={'event_id':participant.event.id}))
     else:
@@ -236,7 +353,13 @@ def print_participant_label_api(request, participant_id):
         'ticket_type': participant.ticket_type,
         'debug': printer.debug,
     }
-    print_text(**data)
+    code_key = participant.code or str(participant.id)
+    label_dir = os.path.join(settings.MEDIA_ROOT, 'badgeprint', 'labels')
+    raster_path = _label_raster_path(code_key, label_dir)
+    if raster_path:
+        send_raster_file_to_printer(printer.uri, raster_path)
+    else:
+        print_text(**data)
     # return to list_event_participant page
     return HttpResponse()
 
@@ -303,7 +426,10 @@ def create_label(code):
         'ticket_type': participant.ticket_type,
         'debug': printer['debug'],
     }
-    print_text(**data)
+    code_key = participant.code or str(participant.id)
+    label_dir = os.path.join(settings.MEDIA_ROOT, 'badgeprint', 'labels')
+    if not _label_raster_path(code_key, label_dir):
+        print_text(**data)
 
 def load_all_printer():
     printers = Printer.objects.all()
@@ -321,16 +447,28 @@ def print_raster_file_by_code(code):
         if load_all_printer():
             printers = cache.get('badgeprint_printers')
         else:
-            status = 'no printer found.'
+            return {'status': 'no printer found', 'printer_reload': printer_reload}
     printer = printers[0]
-    raster_file_path = f"{settings.MEDIA_ROOT}/badgeprint/labels/{code}-{printer['label']}.raster"
-    if not os.path.exists(raster_file_path):
-        create_label(code)
-    if os.path.exists(raster_file_path):
-        status = send_raster_file_to_printer(printer['uri'], raster_file_path)
+    label_dir = os.path.join(settings.MEDIA_ROOT, 'badgeprint', 'labels')
+    raster_path = _label_raster_path(code, label_dir)
+    if not raster_path:
+        # Raster missing — generate image + raster now
+        try:
+            participant = Participant.objects.filter(code=code).first() \
+                or Participant.objects.filter(id=code).first()
+        except Exception:
+            participant = None
+        if not participant:
+            return {'status': 'participant not found', 'printer_reload': printer_reload}
+        err = _regenerate_participant_label(participant)
+        if err:
+            return {'status': 'generate failed: %s' % err, 'printer_reload': printer_reload}
+        raster_path = _label_raster_path(code, label_dir)
+    if raster_path:
+        status = send_raster_file_to_printer(printer['uri'], raster_path)
         result = {'status': status, 'printer_reload': printer_reload}
     else:
-        result = {'status': 'participant not exist', 'printer_reload': printer_reload}
+        result = {'status': 'raster not found after generation', 'printer_reload': printer_reload}
     return result
 
 @csrf_exempt
@@ -349,13 +487,20 @@ def config_load_printers(request):
 def print_raster_file(request):
     data = json.loads(request.body)
     code = data.get('code')
-    service_metadata = {
-        'code': code,
-        'print_label': 1
-    }
-    service = Service(title='Badge Print', description=f'{code}', metadata=service_metadata)
-    service.save()
+    printer_qs = Printer.objects.filter(active=True)
+    printer_obj = printer_qs.filter(printall=True).first() or printer_qs.first()
+    printer_id = str(printer_obj.id) if printer_obj else None
     status = print_raster_file_by_code(code)
+    if status.get('status') in ('ok', 'success', True):
+        Service.objects.create(
+            title='Badge Print',
+            description=code,
+            metadata={
+                'code': code,
+                'device': 'web',
+                'printer': printer_id,
+            },
+        )
     return JsonResponse({'status': status['status'], 'printer_reload': status['printer_reload']})
 
 @api_view(['PUT'])
@@ -377,17 +522,33 @@ def api_check_in(request):
             return JsonResponse({'status': 'not found'}, status=404)
     participant.status = 'Attended'
     participant.save()
-    service_metadata = {
-        'code': code,
-        'print_label': print_label,
-        'participant_id': str(participant.id)
-    }
-    service = Service(title='Event Checkin', description=f'{code}', metadata=service_metadata)
-    service.save()
-    if print_label:
-        service = Service(title='Badge Print', description=f'{code}', metadata=service_metadata)
-        service.save()
+    # Resolve printer: prefer printall printer, else first active printer
+    printer_qs = Printer.objects.filter(active=True)
+    printer_obj = printer_qs.filter(printall=True).first() or printer_qs.first()
+    printer_id = str(printer_obj.id) if printer_obj else None
+    # Check if any printer has printall=True
+    should_print = print_label or Printer.objects.filter(printall=True, active=True).exists()
+    Service.objects.create(
+        title='Event Checkin',
+        description=code,
+        metadata={
+            'code': code,
+            'print_label': printer_id,
+            'participant_id': str(participant.id),
+        },
+    )
+    if should_print:
         status = print_raster_file_by_code(code)
+        if status.get('status') in ('ok', 'success', True):
+            Service.objects.create(
+                title='Badge Print',
+                description=code,
+                metadata={
+                    'code': code,
+                    'device': 'web',
+                    'printer': printer_id,
+                },
+            )
     else:
         status = {'status': 'success', 'printer_reload': 0}
     return JsonResponse({'first_name': participant.first_name,
@@ -415,14 +576,16 @@ def api_check_out(request):
             return JsonResponse({'status': 'not found'}, status=404)
     participant.status = 'Attending'
     participant.save()
+    # Check if any printer has printall=True
+    should_print = print_label or Printer.objects.filter(printall=True, active=True).exists()
     service_metadata = {
         'code': code,
-        'print_label': print_label,
+        'print_label': should_print,
         'participant_id': str(participant.id)
     }
     service = Service(title='Event Checkout', description=f'{code}', metadata=service_metadata)
     service.save()
-    if print_label:
+    if should_print:
         service = Service(title='Badge Print', description=f'{code}', metadata=service_metadata)
         service.save()
         status = print_raster_file_by_code(code)
@@ -590,18 +753,304 @@ def community_detail(request, community_id):
     return render(request, 'communities/community_detail.html', {'community': community})
 
 def participant_create_view(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
     if request.method == 'POST':
         data = request.POST.copy()
         data['event'] = event_id
+        data.setdefault('status', 'Attending')
         serializer = ParticipantSerializer(data=data)
         if serializer.is_valid():
             serializer.save(id=uuid.uuid4(), active=True)
-            messages.success(request, 'Participant created successfully.')
-            return redirect('list_event_participant', event_id=event_id)
+            messages.success(request, 'Participant added successfully.')
+            return redirect('get_my_event', event_id=event_id)
         else:
-            messages.error(request, 'Error creating participant.')
-            return render(request, 'badgeprint/participant_form.html', {'errors': serializer.errors})
-    return render(request, 'badgeprint/participant_form.html', {'events': Event.objects.all()})
+            return render(request, 'badgeprint/participant_form.html', {
+                'errors': serializer.errors,
+                'event': event,
+                'event_id': event_id,
+            })
+    return render(request, 'badgeprint/participant_form.html', {
+        'event': event,
+        'event_id': event_id,
+    })
+
+IMPORT_FIELDS = ['first_name', 'last_name', 'email', 'company', 'phone', 'ticket_type', 'code']
+
+@login_required
+def import_participants_upload(request, event_id):
+    """Step 1: upload CSV and show column mapping UI."""
+    event = get_object_or_404(Event, id=event_id)
+    if request.method == 'POST' and request.FILES.get('csv_file'):
+        csv_file = request.FILES['csv_file']
+        try:
+            text = csv_file.read().decode('utf-8-sig')
+        except UnicodeDecodeError:
+            csv_file.seek(0)
+            text = csv_file.read().decode('latin-1')
+        reader = csv.reader(io.StringIO(text))
+        rows = list(reader)
+        if not rows:
+            messages.error(request, 'The CSV file is empty.')
+            return redirect('import_participants_upload', event_id=event_id)
+        headers = rows[0]
+        preview = rows[1:6]  # up to 5 sample rows
+        # Store CSV in session for step 2
+        request.session[f'csv_import_{event_id}'] = {'headers': headers, 'rows': rows[1:]}
+        return render(request, 'badgeprint/import_participants.html', {
+            'event': event,
+            'event_id': event_id,
+            'headers': headers,
+            'preview': preview,
+            'import_fields': IMPORT_FIELDS,
+            'step': 'map',
+        })
+    return render(request, 'badgeprint/import_participants.html', {
+        'event': event,
+        'event_id': event_id,
+        'step': 'upload',
+    })
+
+
+@login_required
+def import_participants_confirm(request, event_id):
+    """Step 2: receive column mapping, import rows."""
+    event = get_object_or_404(Event, id=event_id)
+    session_key = f'csv_import_{event_id}'
+    csv_data = request.session.get(session_key)
+    if not csv_data:
+        messages.error(request, 'Session expired. Please upload the CSV again.')
+        return redirect('import_participants_upload', event_id=event_id)
+    if request.method != 'POST':
+        return redirect('import_participants_upload', event_id=event_id)
+
+    headers = csv_data['headers']
+    rows = csv_data['rows']
+
+    # Build mapping: field_name -> column index (or '' = skip)
+    mapping = {}
+    for field in IMPORT_FIELDS:
+        col = request.POST.get(f'map_{field}', '')
+        if col != '':
+            try:
+                mapping[field] = int(col)
+            except ValueError:
+                pass
+
+    if 'first_name' not in mapping:
+        messages.error(request, 'First Name column mapping is required.')
+        return render(request, 'badgeprint/import_participants.html', {
+            'event': event,
+            'event_id': event_id,
+            'headers': headers,
+            'preview': rows[:5],
+            'import_fields': IMPORT_FIELDS,
+            'step': 'map',
+        })
+
+    imported = 0
+    updated = 0
+    skipped = 0
+    errors = []
+    for i, row in enumerate(rows, start=2):
+        if not any(row):
+            continue
+
+        def get_col(field, _row=row):
+            idx = mapping.get(field)
+            if idx is None:
+                return ''
+            try:
+                return _row[idx].strip()
+            except IndexError:
+                return ''
+
+        first_name = get_col('first_name')
+        if not first_name:
+            skipped += 1
+            continue
+
+        try:
+            code = get_col('code') or None
+            existing = None
+            if code:
+                existing = Participant.objects.filter(event=event, code=code).first()
+
+            if existing:
+                existing.first_name = first_name
+                existing.last_name = get_col('last_name') or existing.last_name
+                existing.email = get_col('email') or existing.email
+                existing.company = get_col('company') or existing.company
+                existing.phone = get_col('phone') or existing.phone
+                existing.ticket_type = get_col('ticket_type') or existing.ticket_type
+                existing.active = True
+                existing.save()
+                updated += 1
+            else:
+                Participant.objects.create(
+                    id=uuid.uuid4(),
+                    event=event,
+                    first_name=first_name,
+                    last_name=get_col('last_name'),
+                    email=get_col('email') or None,
+                    company=get_col('company') or None,
+                    phone=get_col('phone') or None,
+                    ticket_type=get_col('ticket_type') or None,
+                    code=code,
+                    status='Attending',
+                    active=True,
+                )
+                imported += 1
+        except Exception as e:
+            errors.append(f'Row {i}: {e}')
+
+    del request.session[session_key]
+    if errors:
+        for err in errors[:5]:
+            messages.warning(request, err)
+    messages.success(request, f'Import complete: {imported} added, {updated} updated, {skipped} skipped.')
+    return redirect('get_my_event', event_id=event_id)
+
+
+def _label_image_path(code_key, label_dir):
+    """Return the most recent PNG path for a code, or None."""
+    candidates = glob.glob(os.path.join(label_dir, '%s-*.png' % code_key))
+    return max(candidates, key=os.path.getmtime) if candidates else None
+
+def _label_raster_path(code_key, label_dir):
+    """Return the most recent raster path for a code, or None."""
+    candidates = glob.glob(os.path.join(label_dir, '%s-*.raster' % code_key))
+    return max(candidates, key=os.path.getmtime) if candidates else None
+
+def _regenerate_participant_label(participant):
+    """Generate PNG + raster for one participant. Returns error string or None."""
+    printers = cache.get('badgeprint_printers')
+    if not printers:
+        if not load_all_printer():
+            return 'no printer configured'
+        printers = cache.get('badgeprint_printers')
+    printer = printers[0]
+    data = {
+        'code': participant.code or str(participant.id),
+        'event_name': participant.event.name,
+        'first_name': participant.first_name,
+        'last_name': participant.last_name or '',
+        'company': participant.company or '',
+        'label_size': printer['label'],
+        'printer_uri': printer['uri'],
+        'printer_model': 'QL-720NW',
+        'orientation': 'rotated',
+        'logo': participant.event.logo,
+        'label_tpl': participant.event.label_tpl or '',
+        'ticket_type': participant.ticket_type or '',
+        'debug': printer['debug'],
+    }
+    try:
+        print_text(**data)
+        return None
+    except Exception as e:
+        return str(e)
+
+
+@login_required
+def preview_label(request, event_id, participant_id):
+    """Return the label PNG as an image response for inline preview."""
+    participant = get_object_or_404(Participant, id=participant_id, event__id=event_id)
+    code_key = participant.code or str(participant.id)
+    label_dir = os.path.join(settings.MEDIA_ROOT, 'badgeprint', 'labels')
+    png_path = _label_image_path(code_key, label_dir)
+    if not png_path:
+        return HttpResponse('Label image not found. Regenerate first.', status=404, content_type='text/plain')
+    with open(png_path, 'rb') as f:
+        return HttpResponse(f.read(), content_type='image/png')
+
+
+@login_required
+def regenerate_label(request, event_id, participant_id):
+    """Regenerate PNG + raster for a single participant."""
+    participant = get_object_or_404(Participant, id=participant_id, event__id=event_id)
+    err = _regenerate_participant_label(participant)
+    if err:
+        return JsonResponse({'status': 'error', 'message': err}, status=500)
+    code_key = participant.code or str(participant.id)
+    label_dir = os.path.join(settings.MEDIA_ROOT, 'badgeprint', 'labels')
+    png_path = _label_image_path(code_key, label_dir)
+    rel = os.path.relpath(png_path, settings.MEDIA_ROOT)
+    png_url = settings.MEDIA_URL + rel.replace(os.sep, '/')
+    return JsonResponse({'status': 'ok', 'label_png_url': png_url})
+
+
+@login_required
+def regenerate_all_labels(request, event_id):
+    """Regenerate PNG + raster for every participant in the event."""
+    event = get_object_or_404(Event, id=event_id)
+    participants = Participant.objects.filter(event=event, active=True)
+    done, failed = 0, []
+    for p in participants:
+        err = _regenerate_participant_label(p)
+        if err:
+            failed.append({'id': str(p.id), 'name': '%s %s' % (p.first_name, p.last_name or ''), 'error': err})
+        else:
+            done += 1
+    return JsonResponse({'status': 'ok', 'generated': done, 'failed': failed})
+
+
+@login_required
+def download_raster_zip(request, event_id):
+    """Stream a ZIP of all raster files for the event."""
+    event = get_object_or_404(Event, id=event_id)
+    participants = Participant.objects.filter(event=event, active=True)
+    label_dir = os.path.join(settings.MEDIA_ROOT, 'badgeprint', 'labels')
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        count = 0
+        for p in participants:
+            code_key = p.code or str(p.id)
+            raster_path = _label_raster_path(code_key, label_dir)
+            if raster_path:
+                zf.write(raster_path, os.path.basename(raster_path))
+                count += 1
+    if count == 0:
+        return HttpResponse('No raster files found. Regenerate labels first.', status=404, content_type='text/plain')
+
+    buf.seek(0)
+    zip_name = 'rasters-%s.zip' % str(event_id)[:8]
+    response = HttpResponse(buf.read(), content_type='application/zip')
+    response['Content-Disposition'] = 'attachment; filename="%s"' % zip_name
+    return response
+
+
+@login_required
+def import_raster_zip(request, event_id):
+    """Import raster files from an uploaded ZIP into the label directory."""
+    if request.method != 'POST' or not request.FILES.get('raster_zip'):
+        return JsonResponse({'status': 'error', 'message': 'No file uploaded.'}, status=400)
+
+    label_dir = os.path.join(settings.MEDIA_ROOT, 'badgeprint', 'labels')
+    os.makedirs(label_dir, exist_ok=True)
+
+    uploaded = request.FILES['raster_zip']
+    imported, skipped = 0, 0
+    try:
+        with zipfile.ZipFile(io.BytesIO(uploaded.read())) as zf:
+            for name in zf.namelist():
+                basename = os.path.basename(name)
+                if not basename.endswith('.raster'):
+                    skipped += 1
+                    continue
+                # Safety: reject paths with directory traversal
+                dest = os.path.join(label_dir, basename)
+                if not os.path.abspath(dest).startswith(os.path.abspath(label_dir)):
+                    skipped += 1
+                    continue
+                with zf.open(name) as src, open(dest, 'wb') as dst:
+                    dst.write(src.read())
+                imported += 1
+    except zipfile.BadZipFile:
+        return JsonResponse({'status': 'error', 'message': 'Invalid ZIP file.'}, status=400)
+
+    return JsonResponse({'status': 'ok', 'imported': imported, 'skipped': skipped})
+
 
 def participant_edit(request, participant_id):
     if request.method == 'POST':

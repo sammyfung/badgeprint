@@ -1,25 +1,126 @@
 {% extends "badgeprint/base.html" %}
 {% load static %}
-{% block title %}
-Event List
-{% endblock %}
-{% block css %}
-<link rel="stylesheet" type="text/css" href="{% static 'datatables.min.css' %}"/>
-<link rel="stylesheet" type="text/css" href="{% static 'Select-1.2.2/css/select.dataTables.min.css' %}"/>
-{% endblock %}
-{% block js %}
-<script type="text/javascript" src="{% static 'datatables.min.js' %}"></script>
-<script type="text/javascript" src="{% static 'Select-1.2.2/js/dataTables.select.min.js' %}"></script>
-<script>
-</script>
-{% endblock %}
-{% block sidebar %}
-<ul class="nav nav-sidebar">
-  <li class="active"><a href="{% url 'list_my_event' %}">My Events</a></li>
-</ul>
-{% endblock %}
-{% block content %}
-  <div class="table-responsive">
+{% block title %}{{ event.name }}{% endblock %}
 
- </div>
+{% block sidebar %}
+<span class="sidebar-section">Browse</span>
+<a href="{% url 'list_all_event' %}" class="sidebar-link">
+  <i class="bi bi-calendar-event"></i> Public Events
+</a>
+{% if can_manage %}
+<span class="sidebar-section">Manage</span>
+<a href="{% url 'list_event_participant' event_id=event.id %}" class="sidebar-link">
+  <i class="bi bi-people"></i> Participants
+</a>
+<a href="{% url 'edit_event' event_id=event.id %}" class="sidebar-link">
+  <i class="bi bi-pencil-square"></i> Edit Event
+</a>
+{% endif %}
+{% if user.is_authenticated %}
+<span class="sidebar-section">My Events</span>
+<a href="{% url 'list_my_event' %}" class="sidebar-link">
+  <i class="bi bi-calendar-check"></i> My Events
+</a>
+{% else %}
+<span class="sidebar-section">Account</span>
+<a href="{% url 'badgeprint_logon' %}" class="sidebar-link">
+  <i class="bi bi-box-arrow-in-right"></i> Login
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- Main info card -->
+  <div class="col-12">
+    <div class="card border-0 shadow-sm rounded-3">
+      <div class="card-body p-4">
+
+        <!-- Logo + title row -->
+        <div class="d-flex align-items-center gap-4 mb-4 flex-wrap">
+          {% if event.logo and event.logo.name %}
+          <img src="{{ event.logo.url }}" alt="{{ event.name }} logo"
+               class="rounded-3 border" style="width:96px;height:96px;object-fit:contain;background:#f8f9fa;">
+          {% else %}
+          <div class="rounded-3 border d-flex align-items-center justify-content-center"
+               style="width:96px;height:96px;background:#f1f5f9;flex-shrink:0;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="#94a3b8" viewBox="0 0 16 16">
+              <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5M2 2a1 1 0 0 0-1 1v1h14V3a1 1 0 0 0-1-1zm13 3H1v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1z"/>
+            </svg>
+          </div>
+          {% endif %}
+          <div>
+            <h3 class="fw-bold mb-1">{{ event.name }}</h3>
+            {% if event.city %}
+            <p class="text-muted mb-0"><i class="bi bi-geo-alt me-1"></i>{{ event.city }}</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Date & time -->
+        <div class="row g-3 mb-4">
+          {% if event.start_time %}
+          <div class="col-sm-6">
+            <div class="d-flex align-items-start gap-2">
+              <i class="bi bi-calendar-event text-primary mt-1"></i>
+              <div>
+                <div class="small text-muted fw-semibold text-uppercase" style="letter-spacing:.05em;">Start</div>
+                <div class="fw-semibold">{{ event.start_time|date:"j N Y, H:i" }}</div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+          {% if event.end_time %}
+          <div class="col-sm-6">
+            <div class="d-flex align-items-start gap-2">
+              <i class="bi bi-calendar-check text-secondary mt-1"></i>
+              <div>
+                <div class="small text-muted fw-semibold text-uppercase" style="letter-spacing:.05em;">End</div>
+                <div class="fw-semibold">{{ event.end_time|date:"j N Y, H:i" }}</div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Description -->
+        {% if event.description %}
+        <hr class="my-3">
+        <div class="mb-4" style="white-space:pre-wrap;">{{ event.description }}</div>
+        {% endif %}
+
+        <!-- Links -->
+        {% if event.website_url or event.rsvp %}
+        <hr class="my-3">
+        <div class="d-flex flex-wrap gap-2">
+          {% if event.website_url %}
+          <a href="{{ event.website_url }}" target="_blank" rel="noopener"
+             class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-globe me-1"></i>Event Website
+          </a>
+          {% endif %}
+          {% if event.rsvp %}
+          <a href="{% url 'event_rsvp' event_id=event.id %}"
+             class="btn btn-primary btn-sm">
+            <i class="bi bi-ticket-perforated me-1"></i>RSVP
+          </a>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- RSVP window -->
+        {% if event.rsvp_start_time or event.rsvp_end_time %}
+        <div class="mt-3 text-muted small">
+          <i class="bi bi-clock me-1"></i>RSVP open:
+          {% if event.rsvp_start_time %}from {{ event.rsvp_start_time|date:"j N Y, H:i" }}{% endif %}
+          {% if event.rsvp_end_time %}until {{ event.rsvp_end_time|date:"j N Y, H:i" }}{% endif %}
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+
+</div>
 {% endblock %}

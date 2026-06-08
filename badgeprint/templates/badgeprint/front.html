@@ -1,76 +1,203 @@
 {% extends "badgeprint/base.html" %}
 {% load static %}
-{% block title %}
-Public Events
+{% block title %}Public Events{% endblock %}
+
+{% block sidebar %}
+<span class="sidebar-section">Browse</span>
+<a href="{% url 'list_all_event' %}" class="sidebar-link active">
+  <i class="bi bi-calendar-event"></i> Public Events
+</a>
+{% if user.is_authenticated %}
+<span class="sidebar-section">My Events</span>
+<a href="{% url 'list_my_event' %}" class="sidebar-link">
+  <i class="bi bi-calendar-check"></i> My Events
+</a>
+<a href="{% url 'add_event' %}" class="sidebar-link">
+  <i class="bi bi-plus-circle"></i> Add Event
+</a>
+{% else %}
+<span class="sidebar-section">Account</span>
+<a href="{% url 'badgeprint_logon' %}" class="sidebar-link">
+  <i class="bi bi-box-arrow-in-right"></i> Login
+</a>
+{% endif %}
 {% endblock %}
-{% block css %}
-<link rel="stylesheet" type="text/css" href="{% static 'datatables.min.css' %}"/>
-<link rel="stylesheet" type="text/css" href="{% static 'Select-1.2.2/css/select.dataTables.min.css' %}"/>
+
+{% block content %}
+<!-- Hero banner -->
+<div class="rounded-3 p-4 p-md-5 mb-4 text-white"
+     style="background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 60%, #6366f1 100%);">
+  <div class="d-flex align-items-center gap-3 mb-2">
+    <i class="bi bi-badge-cc-fill" style="font-size: 2.5rem;"></i>
+    <h1 class="mb-0 fw-bold fs-2">BadgePrint</h1>
+  </div>
+  <p class="mb-4 opacity-75 fs-5">Event check-in and badge printing, made simple.</p>
+  {% if not user.is_authenticated %}
+  <a href="{% url 'badgeprint_logon' %}" class="btn btn-light fw-semibold px-4 py-2">
+    <i class="bi bi-box-arrow-in-right me-2"></i>Login to manage events
+  </a>
+  {% endif %}
+</div>
+
+<!-- Public events -->
+<div class="card border-0 shadow-sm rounded-3">
+  <div class="card-body px-4 pb-4 pt-3">
+    <ul class="nav nav-tabs mb-3" id="eventTabs" role="tablist"></ul>
+    <div class="tab-content" id="eventTabContent">
+      <div class="tab-pane fade" id="tab-highlight" role="tabpanel">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle w-100" id="list-highlight">
+            <thead class="table-light"><tr><th>Event Name</th><th>Date &amp; Time</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="tab-today" role="tabpanel">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle w-100" id="list-today">
+            <thead class="table-light"><tr><th>Event Name</th><th>Date &amp; Time</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="tab-week" role="tabpanel">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle w-100" id="list-week">
+            <thead class="table-light"><tr><th>Event Name</th><th>Date &amp; Time</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="tab-upcoming" role="tabpanel">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle w-100" id="list-upcoming">
+            <thead class="table-light"><tr><th>Event Name</th><th>Date &amp; Time</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="tab-past" role="tabpanel">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle w-100" id="list-past">
+            <thead class="table-light"><tr><th>Event Name</th><th>Date &amp; Time</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="no-events" class="text-center text-muted py-5" style="display:none;">
+      <i class="bi bi-calendar-x fs-1 d-block mb-2"></i>No public events scheduled.
+    </div>
+  </div>
+</div>
 {% endblock %}
+
 {% block js %}
-<script type="text/javascript" src="{% static 'datatables.min.js' %}"></script>
-<script type="text/javascript" src="{% static 'Select-1.2.2/js/dataTables.select.min.js' %}"></script>
 <script>
 function formatDate(dateString) {
-    const date = new Date(dateString);
-    const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Months are 0-based
-    const day = String(date.getUTCDate()).padStart(2, '0');
-    const hours = String(date.getUTCHours()).padStart(2, '0');
-    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}`;
-}
-$(document).ready( function () {
-    var table = $('#event_list').DataTable( {
-        "ajax": {
-            "url": '{% url json_api %}',
-            "dataType": 'json',
-            "dataSrc": "data",
-        },
-        "columns": [
-            { 'data': 'name' },
-            { data: null,
-                    render: function(data, type, row) {
-                          return formatDate(row['start_time']);
-                      },
-            }
-        ],
-        "columnDefs": [
-            {
-                "render": function ( data, type, row ) {
-                    return '<a href="{% url 'list_all_event' %}' + row['id'] + '">' + data + '</a>';
-                },
-                "targets": 0
-            },
-        ],
-        "language": {
-          "emptyTable": 'No public events.',
-          "lengthMenu": 'Show _MENU_ public events',
-        },
-        //dom: "Bfrtip",
-        "select": false,
-        "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]]
+    if (!dateString) return '—';
+    const d = new Date(dateString);
+    return d.toLocaleString('en-GB', {
+        year: 'numeric', month: 'short', day: '2-digit',
+        hour: '2-digit', minute: '2-digit'
     });
-    setInterval( function () {
-        table.ajax.reload(null, false);
-    }, 5000 );
+}
+
+function eventLink(row) {
+    return `<a href="{% url 'list_all_event' %}${row.id}" class="fw-semibold text-decoration-none">${row.name}</a>`;
+}
+
+function initTable(tableId, events) {
+    if ($.fn.DataTable.isDataTable('#' + tableId)) {
+        $('#' + tableId).DataTable().destroy();
+    }
+    const tbody = $('#' + tableId + ' tbody').empty();
+    events.forEach(function(e) {
+        tbody.append('<tr><td>' + eventLink(e) + '</td><td>' + formatDate(e.start_time) + '</td></tr>');
+    });
+    $('#' + tableId).DataTable({
+        language: { lengthMenu: 'Show _MENU_ events' },
+        select: false,
+        order: [],
+        lengthMenu: [[10, 25, 50, -1], [10, 25, 50, 'All']]
+    });
+}
+
+function addTab(id, label, icon, events, isFirst) {
+    const tabId = 'tab-' + id;
+    const active = isFirst ? ' active' : '';
+    const show = isFirst ? ' show active' : '';
+    $('#eventTabs').append(
+        '<li class="nav-item" role="presentation">' +
+        '<button class="nav-link' + active + '" id="btn-' + id + '" data-bs-toggle="tab" ' +
+        'data-bs-target="#' + tabId + '" type="button" role="tab">' +
+        '<i class="bi ' + icon + ' me-1"></i>' + label +
+        ' <span class="badge bg-secondary ms-1">' + events.length + '</span>' +
+        '</button></li>'
+    );
+    $('#' + tabId).addClass('fade' + show);
+    initTable('list-' + id, events);
+}
+
+$(document).ready(function () {
+    $.getJSON('{% url json_api %}', function(resp) {
+        const all = resp.data || [];
+
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const todayEnd   = new Date(todayStart.getTime() + 86400000);
+        const weekEnd    = new Date(todayStart.getTime() + 7 * 86400000);
+
+        function startOf(e) { return e.start_time ? new Date(e.start_time) : null; }
+        function endOf(e)   { return e.end_time   ? new Date(e.end_time)   : null; }
+        function cmpAsc(a, b)  { return startOf(a) - startOf(b); }
+        function cmpDesc(a, b) { return startOf(b) - startOf(a); }
+
+        const highlight = all.filter(e => e.highlight).sort(cmpAsc);
+
+        const today = all.filter(function(e) {
+            const s = startOf(e), en = endOf(e);
+            if (!s) return false;
+            if (s >= todayStart && s < todayEnd) return true;          // starts today
+            if (s < todayStart && en && en >= todayStart) return true; // started before, ends today or later
+            return false;
+        }).sort(cmpAsc);
+
+        const week = all.filter(function(e) {
+            const s = startOf(e);
+            return s && s >= todayStart && s < weekEnd;
+        }).sort(cmpAsc);
+
+        const upcoming = all.filter(function(e) {
+            const s = startOf(e);
+            return s && s >= weekEnd;
+        }).sort(cmpAsc);
+
+        const past = all.filter(function(e) {
+            const s = startOf(e), en = endOf(e);
+            if (!s || s >= todayStart) return false;
+            return !en || en < todayStart;
+        }).sort(cmpDesc);
+
+        const tabs = [
+            { id: 'highlight', label: 'Highlighted',  icon: 'bi-star-fill',       events: highlight },
+            { id: 'today',     label: 'Today',         icon: 'bi-calendar-day',    events: today     },
+            { id: 'week',      label: 'This Week',     icon: 'bi-calendar-week',   events: week      },
+            { id: 'upcoming',  label: 'Upcoming',      icon: 'bi-calendar-arrow-up', events: upcoming},
+            { id: 'past',      label: 'Past',          icon: 'bi-clock-history',   events: past      },
+        ];
+
+        const visible = tabs.filter(t => t.events.length > 0);
+
+        if (visible.length === 0) {
+            $('#no-events').show();
+            return;
+        }
+
+        visible.forEach(function(t, idx) {
+            addTab(t.id, t.label, t.icon, t.events, idx === 0);
+        });
+    });
 });
 </script>
-{% endblock %}
-{% block sidebar %}
-<ul class="nav nav-sidebar">
-  <li class="active"><a href="{% url 'list_all_event' %}">Public Events</a></li>
-</ul>
-{% endblock %}
-{% block content %}
-  <div class="table-responsive">
-    <table class="table table-striped" id="event_list">
-      <thead>
-        <tr>
-          <th>Event Name</th>
-          <th>Event Time</th>
-        </tr>
-      </thead>
-    </table>
- </div>
 {% endblock %}
